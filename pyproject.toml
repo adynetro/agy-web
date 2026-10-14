@@ -8,6 +8,9 @@ version = "1.0.0"
 description = "Modern Developer Web UI and Multi-Channel Gateway for Google Antigravity (agy)"
 readme = "README.md"
 license = { text = "Apache-2.0" }
+authors = [
+    { name = "Ch AFleks", email = "adynetro@yahoo.com" }
+]
 requires-python = ">=3.9"
 dependencies = [
     "fastapi>=0.110.0",

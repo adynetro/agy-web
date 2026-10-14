@@ -13,7 +13,7 @@ A modern, high-performance Web UI and multi-channel messaging gateway for the **
 Install everything—including the **Google Antigravity (`agy`) CLI**, Python dependencies, systemd daemon, and CLI launcher—with a single command:
 
 ```bash
-curl -fsSL https://raw.githubusercontent.com/google-deepmind/agy-webui/main/install.sh | bash
+curl -fsSL https://raw.githubusercontent.com/adynetro/agy-webui/main/install.sh | bash
 ```
 
 > **Note:** The installer automatically detects if `agy` is installed; if not found, it downloads and installs `agy` via official channels, creates an isolated virtual environment, configures systemd, and registers the global `agy-webui` command.
@@ -56,7 +56,7 @@ From a terminal on your host or container:
 
 ```bash
 # Clone the repository
-git clone https://github.com/google-deepmind/agy-webui.git
+git clone https://github.com/adynetro/agy-webui.git
 cd agy-webui
 
 # Run the installer
@@ -75,7 +75,7 @@ cd agy-webui
 You can install `agy-webui` as a standard Python package:
 
 ```bash
-git clone https://github.com/google-deepmind/agy-webui.git
+git clone https://github.com/adynetro/agy-webui.git
 cd agy-webui
 pip install -e .
 
@@ -88,7 +88,7 @@ agy-webui --port 8000
 Run in an isolated container with `docker-compose`:
 
 ```bash
-git clone https://github.com/google-deepmind/agy-webui.git
+git clone https://github.com/adynetro/agy-webui.git
 cd agy-webui
 docker compose up -d
 ```
