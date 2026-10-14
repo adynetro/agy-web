@@ -53,9 +53,11 @@ class AgyApp {
       discordPill: document.getElementById('discord-pill'),
       discordStatusText: document.getElementById('discord-status-text'),
       discordIndicator: document.getElementById('discord-indicator'),
+      settingsDiscordDot: document.getElementById('settings-discord-dot'),
       btnChannels: document.getElementById('btn-channels'),
       btnSettings: document.getElementById('btn-settings'),
       btnSystem: document.getElementById('btn-system'),
+      btnRefreshSystem: document.getElementById('btn-refresh-system'),
       btnThemeToggle: document.getElementById('btn-theme-toggle'),
       themeIcon: document.getElementById('theme-icon'),
       themeLabel: document.getElementById('theme-label'),
@@ -120,12 +122,9 @@ class AgyApp {
       btnCliClear: document.getElementById('btn-cli-clear'),
 
       // Modals
-      modalChannels: document.getElementById('modal-channels'),
       modalSettings: document.getElementById('modal-settings'),
-      modalSystem: document.getElementById('modal-system'),
-      modalDesignSystem: document.getElementById('modal-design-system'),
-      btnDesignKit: document.getElementById('btn-design-kit'),
-      btnHeaderDesign: document.getElementById('btn-header-design'),
+      modalChannels: document.getElementById('modal-settings'),
+      modalSystem: document.getElementById('modal-settings'),
     };
 
     this.currentTheme = 'dark';
@@ -346,19 +345,31 @@ class AgyApp {
       });
     }
 
-    // Modal Triggers
-    if (this.dom.btnDesignKit) {
-      this.dom.btnDesignKit.addEventListener('click', () => this.openDesignSystemModal());
-    }
-    if (this.dom.btnHeaderDesign) {
-      this.dom.btnHeaderDesign.addEventListener('click', () => this.openDesignSystemModal());
-    }
-    this.setupDesignSystemEvents();
+    // Settings Modal Tabs Switching
+    const settingsTabs = document.querySelectorAll('.settings-tab-btn');
+    settingsTabs.forEach(tab => {
+      tab.addEventListener('click', () => {
+        const targetTab = tab.getAttribute('data-tab');
+        if (targetTab) this.switchSettingsTab(targetTab);
+      });
+    });
 
-    this.dom.btnChannels.addEventListener('click', () => this.openChannelsModal());
-    this.dom.discordPill.addEventListener('click', () => this.openChannelsModal());
-    this.dom.btnSettings.addEventListener('click', () => this.openSettingsModal());
-    this.dom.btnSystem.addEventListener('click', () => this.openSystemModal());
+    if (this.dom.btnRefreshSystem) {
+      this.dom.btnRefreshSystem.addEventListener('click', () => this.loadSystemInfoForm());
+    }
+
+    if (this.dom.btnSettings) {
+      this.dom.btnSettings.addEventListener('click', () => this.openSettingsModal('tab-general'));
+    }
+    if (this.dom.btnChannels) {
+      this.dom.btnChannels.addEventListener('click', () => this.openSettingsModal('tab-discord'));
+    }
+    if (this.dom.discordPill) {
+      this.dom.discordPill.addEventListener('click', () => this.openSettingsModal('tab-discord'));
+    }
+    if (this.dom.btnSystem) {
+      this.dom.btnSystem.addEventListener('click', () => this.openSettingsModal('tab-host'));
+    }
 
     // Mobile Sidebar Drawer Controls
     if (this.dom.btnSidebarToggle) {
@@ -479,10 +490,19 @@ class AgyApp {
       
       const discord = this.channels.find(c => c.id === 'discord');
       if (discord) {
-        this.dom.discordStatusText.textContent = `Discord: ${discord.status.toUpperCase()}`;
-        this.dom.discordIndicator.className = `status-indicator ${discord.status}`;
-        if (discord.status === 'online' && discord.bot_user) {
-          this.dom.discordStatusText.textContent = `Discord: @${discord.bot_user}`;
+        if (this.dom.discordStatusText) {
+          if (discord.status === 'online' && discord.bot_user) {
+            this.dom.discordStatusText.textContent = `Discord: @${discord.bot_user}`;
+          } else {
+            this.dom.discordStatusText.textContent = `Discord: ${discord.status.toUpperCase()}`;
+          }
+        }
+        if (this.dom.discordIndicator) {
+          this.dom.discordIndicator.className = `status-indicator ${discord.status}`;
+        }
+        const settingsDot = document.getElementById('settings-discord-dot');
+        if (settingsDot) {
+          settingsDot.className = `status-indicator ${discord.status}`;
         }
       }
     } catch (e) {
@@ -1027,46 +1047,158 @@ ${this.escapeHtml(outputContent)}
     return div.innerHTML;
   }
 
-  // --- Modal Logic ---
+  // --- Unified Settings, Discord & Host Specs Modal Logic ---
+
+  switchSettingsTab(tabId) {
+    const tabs = document.querySelectorAll('.settings-tab-btn');
+    const contents = document.querySelectorAll('.settings-tab-content');
+    tabs.forEach(t => {
+      if (t.getAttribute('data-tab') === tabId) {
+        t.classList.add('active');
+      } else {
+        t.classList.remove('active');
+      }
+    });
+    contents.forEach(c => {
+      if (c.id === tabId) {
+        c.classList.add('active');
+      } else {
+        c.classList.remove('active');
+      }
+    });
+    if (tabId === 'tab-host') {
+      this.loadSystemInfoForm();
+    }
+  }
+
+  async openSettingsModal(activeTab = 'tab-general') {
+    this.closeSidebar();
+    if (this.dom.modalSettings) {
+      this.dom.modalSettings.style.display = 'flex';
+      this.switchSettingsTab(activeTab);
+    }
+    await Promise.all([
+      this.loadSettingsForm(),
+      this.loadDiscordForm(),
+      this.loadSystemInfoForm()
+    ]);
+  }
 
   async openChannelsModal() {
-    this.closeSidebar();
-    this.dom.modalChannels.style.display = 'flex';
+    this.openSettingsModal('tab-discord');
+  }
+
+  async openSystemModal() {
+    this.openSettingsModal('tab-host');
+  }
+
+  async loadSettingsForm() {
     try {
       const res = await fetch('/api/settings');
       const s = await res.json();
-      document.getElementById('discord-enable-toggle').checked = s.discord_enabled;
-      document.getElementById('discord-token-input').placeholder = s.discord_bot_token_set ? `Configured (${s.discord_bot_token_masked})` : 'Enter Discord Bot Token';
-      document.getElementById('discord-token-input').value = '';
-      document.getElementById('discord-prefix-input').value = s.discord_prefix || '!agy';
-      document.getElementById('discord-channels-input').value = (s.discord_allowed_channels || []).join(', ');
-      document.getElementById('discord-autothread-toggle').checked = s.discord_auto_thread || false;
+      const elModel = document.getElementById('settings-model');
+      const elEffort = document.getElementById('settings-effort');
+      const elMode = document.getElementById('settings-mode');
+      const elCwd = document.getElementById('settings-cwd');
+      const elSkip = document.getElementById('settings-skip-permissions');
+
+      if (elModel && s.default_model !== undefined) elModel.value = s.default_model;
+      if (elEffort && s.default_effort !== undefined) elEffort.value = s.default_effort;
+      if (elMode && s.default_mode !== undefined) elMode.value = s.default_mode;
+      if (elCwd && s.default_cwd !== undefined) elCwd.value = s.default_cwd;
+      if (elSkip && s.dangerously_skip_permissions !== undefined) elSkip.checked = s.dangerously_skip_permissions;
+    } catch (e) {
+      console.error('Failed to load settings:', e);
+    }
+  }
+
+  async loadDiscordForm() {
+    try {
+      const res = await fetch('/api/settings');
+      const s = await res.json();
+      const elToggle = document.getElementById('discord-enable-toggle');
+      const elToken = document.getElementById('discord-token-input');
+      const elPrefix = document.getElementById('discord-prefix-input');
+      const elChannels = document.getElementById('discord-channels-input');
+      const elAutothread = document.getElementById('discord-autothread-toggle');
+
+      if (elToggle) elToggle.checked = !!s.discord_enabled;
+      if (elToken) {
+        elToken.placeholder = s.discord_bot_token_set ? `Configured (${s.discord_bot_token_masked})` : 'Enter Discord Bot Token';
+        elToken.value = '';
+      }
+      if (elPrefix) elPrefix.value = s.discord_prefix || '!agy';
+      if (elChannels) elChannels.value = (s.discord_allowed_channels || []).join(', ');
+      if (elAutothread) elAutothread.checked = !!s.discord_auto_thread;
 
       // Status card
       const chRes = await fetch('/api/channels');
       const channels = await chRes.json();
       const discord = channels.find(c => c.id === 'discord');
       const statusBox = document.getElementById('discord-live-status');
-      if (discord) {
+      if (discord && statusBox) {
         statusBox.innerHTML = `
-          <strong>Status:</strong> <span class="status-indicator ${discord.status}"></span> ${discord.status.toUpperCase()}<br>
-          <strong>Bot User:</strong> ${discord.bot_user || 'None'}<br>
-          <strong>Connected Servers:</strong> ${discord.guilds}<br>
-          <strong>Tracked Threads:</strong> ${discord.tracked_threads}
-          ${discord.last_error ? `<br><span style="color:var(--danger)"><strong>Error:</strong> ${discord.last_error}</span>` : ''}
+          <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:8px;">
+            <div>
+              <span class="status-indicator ${discord.status}"></span>
+              <strong>Discord Bot:</strong> <span style="text-transform:uppercase; font-weight:700;">${discord.status}</span>
+            </div>
+            ${discord.status === 'online' ? '<span class="brand-badge" style="background:rgba(0,185,92,0.15); color:var(--success);">ACTIVE</span>' : '<span class="brand-badge" style="background:rgba(252,65,61,0.15); color:var(--danger);">STOPPED</span>'}
+          </div>
+          <div style="font-size:13px; line-height:1.6; color:var(--text-secondary);">
+            <strong>Bot User:</strong> ${discord.bot_user ? '@' + discord.bot_user : 'None'}<br>
+            <strong>Connected Servers:</strong> ${discord.guilds || 0}<br>
+            <strong>Tracked Threads:</strong> ${discord.tracked_threads || 0}
+            ${discord.last_error ? `<br><span style="color:var(--danger)"><strong>Error:</strong> ${this.escapeHtml(discord.last_error)}</span>` : ''}
+          </div>
         `;
       }
     } catch (e) {
-      console.error(e);
+      console.error('Failed to load discord info:', e);
+    }
+  }
+
+  async loadSystemInfoForm() {
+    const content = document.getElementById('system-info-content');
+    if (!content) return;
+    try {
+      const res = await fetch('/api/system');
+      const sys = await res.json();
+      const cpuPct = sys.cpu ? sys.cpu.percent.toFixed(1) : 'N/A';
+      const load1 = sys.cpu ? sys.cpu.load_1m : 'N/A';
+      const load5 = sys.cpu ? sys.cpu.load_5m : 'N/A';
+      const load15 = sys.cpu ? sys.cpu.load_15m : 'N/A';
+      const memPct = sys.memory ? sys.memory.percent : 'N/A';
+      const diskPct = sys.disk ? sys.disk.percent : 'N/A';
+
+      content.innerHTML = `
+        <div style="font-family: var(--font-mono); font-size: 13.5px; line-height: 1.8;">
+          <strong>⚡ CPU Usage:</strong> ${cpuPct}% (${sys.cores} cores, Load: ${load1}, ${load5}, ${load15})<br>
+          <strong>🧠 Memory (RAM):</strong> ${memPct}% (${sys.memory ? sys.memory.used_mb : 0} MB used of ${sys.memory ? sys.memory.total_mb : 0} MB)<br>
+          <strong>💾 Disk Storage:</strong> ${diskPct}% (${sys.disk ? sys.disk.used_gb : 0} GB used of ${sys.disk ? sys.disk.total_gb : 0} GB)<br>
+          <hr style="border: 0; border-top: 1px solid var(--border-color); margin: 8px 0;">
+          <strong>Host OS:</strong> ${sys.os || 'Linux'}<br>
+          <strong>Python:</strong> ${sys.python || 'N/A'}<br>
+          <strong>Antigravity Binary:</strong> ${sys.agy_bin || 'N/A'}<br>
+        </div>
+      `;
+    } catch (e) {
+      content.innerHTML = `<span style="color:var(--danger)">Error loading system specs: ${this.escapeHtml(String(e))}</span>`;
     }
   }
 
   async saveDiscordConfig() {
-    const enabled = document.getElementById('discord-enable-toggle').checked;
-    const token = document.getElementById('discord-token-input').value.trim();
-    const prefix = document.getElementById('discord-prefix-input').value.trim();
-    const channelsStr = document.getElementById('discord-channels-input').value.trim();
-    const autoThread = document.getElementById('discord-autothread-toggle').checked;
+    const elToggle = document.getElementById('discord-enable-toggle');
+    const elToken = document.getElementById('discord-token-input');
+    const elPrefix = document.getElementById('discord-prefix-input');
+    const elChannels = document.getElementById('discord-channels-input');
+    const elAutothread = document.getElementById('discord-autothread-toggle');
+
+    const enabled = elToggle ? elToggle.checked : false;
+    const token = elToken ? elToken.value.trim() : '';
+    const prefix = elPrefix ? elPrefix.value.trim() : '';
+    const channelsStr = elChannels ? elChannels.value.trim() : '';
+    const autoThread = elAutothread ? elAutothread.checked : false;
 
     const allowed_channels = channelsStr ? channelsStr.split(',').map(s => s.trim()).filter(Boolean) : [];
 
@@ -1086,7 +1218,7 @@ ${this.escapeHtml(outputContent)}
       });
       if (res.ok) {
         alert('Discord configuration updated successfully!');
-        this.dom.modalChannels.style.display = 'none';
+        if (this.dom.modalSettings) this.dom.modalSettings.style.display = 'none';
         this.fetchChannels();
       }
     } catch (e) {
@@ -1094,29 +1226,19 @@ ${this.escapeHtml(outputContent)}
     }
   }
 
-  async openSettingsModal() {
-    this.closeSidebar();
-    this.dom.modalSettings.style.display = 'flex';
-    try {
-      const res = await fetch('/api/settings');
-      const s = await res.json();
-      document.getElementById('settings-model').value = s.default_model;
-      document.getElementById('settings-effort').value = s.default_effort;
-      document.getElementById('settings-mode').value = s.default_mode;
-      document.getElementById('settings-cwd').value = s.default_cwd;
-      document.getElementById('settings-skip-permissions').checked = s.dangerously_skip_permissions;
-    } catch (e) {
-      console.error(e);
-    }
-  }
-
   async saveSettings() {
+    const elModel = document.getElementById('settings-model');
+    const elEffort = document.getElementById('settings-effort');
+    const elMode = document.getElementById('settings-mode');
+    const elCwd = document.getElementById('settings-cwd');
+    const elSkip = document.getElementById('settings-skip-permissions');
+
     const payload = {
-      default_model: document.getElementById('settings-model').value,
-      default_effort: document.getElementById('settings-effort').value,
-      default_mode: document.getElementById('settings-mode').value,
-      default_cwd: document.getElementById('settings-cwd').value,
-      dangerously_skip_permissions: document.getElementById('settings-skip-permissions').checked,
+      default_model: elModel ? elModel.value : 'gemini-3.8-flash-high',
+      default_effort: elEffort ? elEffort.value : 'high',
+      default_mode: elMode ? elMode.value : 'auto',
+      default_cwd: elCwd ? elCwd.value : '',
+      dangerously_skip_permissions: elSkip ? elSkip.checked : true,
     };
     try {
       await fetch('/api/settings', {
@@ -1125,7 +1247,7 @@ ${this.escapeHtml(outputContent)}
         body: JSON.stringify(payload)
       });
       alert('Settings saved!');
-      this.dom.modalSettings.style.display = 'none';
+      if (this.dom.modalSettings) this.dom.modalSettings.style.display = 'none';
     } catch (e) {
       alert('Error saving settings: ' + e);
     }
@@ -1457,117 +1579,6 @@ ${this.escapeHtml(outputContent)}
     } else if (pct >= 70) {
       barEl.classList.add('warning');
     }
-  }
-
-  async openSystemModal() {
-    this.closeSidebar();
-    this.dom.modalSystem.style.display = 'flex';
-    try {
-      const res = await fetch('/api/system');
-      const sys = await res.json();
-      const cpuPct = sys.cpu ? sys.cpu.percent.toFixed(1) : 'N/A';
-      const load1 = sys.cpu ? sys.cpu.load_1m : 'N/A';
-      const load5 = sys.cpu ? sys.cpu.load_5m : 'N/A';
-      const load15 = sys.cpu ? sys.cpu.load_15m : 'N/A';
-      const memPct = sys.memory ? sys.memory.percent : 'N/A';
-      const diskPct = sys.disk ? sys.disk.percent : 'N/A';
-
-      document.getElementById('system-info-content').innerHTML = `
-        <div style="font-family: var(--font-mono); font-size: 13.5px; line-height: 1.8;">
-          <strong>⚡ CPU Usage:</strong> ${cpuPct}% (${sys.cores} cores, Load: ${load1}, ${load5}, ${load15})<br>
-          <strong>🧠 Memory (RAM):</strong> ${memPct}% (${sys.memory.used_mb} MB used of ${sys.memory.total_mb} MB)<br>
-          <strong>💾 Disk Storage:</strong> ${diskPct}% (${sys.disk.used_gb} GB used of ${sys.disk.total_gb} GB)<br>
-          <hr style="border: 0; border-top: 1px solid var(--border-color); margin: 8px 0;">
-          <strong>Host OS:</strong> ${sys.os}<br>
-          <strong>Python:</strong> ${sys.python}<br>
-          <strong>Antigravity Binary:</strong> ${sys.agy_bin}<br>
-        </div>
-      `;
-    } catch (e) {
-      console.error(e);
-    }
-  }
-
-  openDesignSystemModal() {
-    this.closeSidebar();
-    if (this.dom.modalDesignSystem) {
-      this.dom.modalDesignSystem.style.display = 'flex';
-    }
-  }
-
-  setupDesignSystemEvents() {
-    // Tabs switching
-    const tabs = document.querySelectorAll('.design-tab-btn');
-    tabs.forEach(tab => {
-      tab.addEventListener('click', () => {
-        tabs.forEach(t => t.classList.remove('active'));
-        tab.classList.add('active');
-        const targetId = tab.getAttribute('data-design-tab');
-        document.querySelectorAll('.design-tab-content').forEach(c => c.classList.remove('active'));
-        const target = document.getElementById(targetId);
-        if (target) target.classList.add('active');
-      });
-    });
-
-    // Font variable sliders
-    const sliderWght = document.getElementById('slider-wght');
-    const sliderOpsz = document.getElementById('slider-opsz');
-    const valWght = document.getElementById('val-slider-wght');
-    const valOpsz = document.getElementById('val-slider-opsz');
-    const fontPreview = document.getElementById('font-live-preview');
-
-    const updateFontPreview = () => {
-      if (!fontPreview) return;
-      const wght = sliderWght ? sliderWght.value : 500;
-      const opsz = sliderOpsz ? sliderOpsz.value : 24;
-      if (valWght) valWght.textContent = wght;
-      if (valOpsz) valOpsz.textContent = opsz;
-      fontPreview.style.fontVariationSettings = `'wght' ${wght}, 'opsz' ${opsz}`;
-    };
-
-    if (sliderWght) sliderWght.addEventListener('input', updateFontPreview);
-    if (sliderOpsz) sliderOpsz.addEventListener('input', updateFontPreview);
-
-    // SVG Copy buttons
-    document.querySelectorAll('.btn-copy-svg').forEach(btn => {
-      btn.addEventListener('click', async () => {
-        const src = btn.getAttribute('data-src');
-        try {
-          const res = await fetch(src);
-          const svgText = await res.text();
-          await navigator.clipboard.writeText(svgText);
-          const origText = btn.textContent;
-          btn.textContent = '✓ Copied SVG!';
-          btn.style.color = 'var(--success)';
-          setTimeout(() => {
-            btn.textContent = origText;
-            btn.style.color = '';
-          }, 2000);
-        } catch (err) {
-          console.error('Failed to copy SVG:', err);
-        }
-      });
-    });
-
-    // Color Swatch click-to-copy
-    document.querySelectorAll('.color-swatch-card').forEach(card => {
-      card.addEventListener('click', async () => {
-        const hex = card.getAttribute('data-color');
-        if (hex) {
-          try {
-            await navigator.clipboard.writeText(hex);
-            const hexEl = card.querySelector('.swatch-hex');
-            const orig = hexEl ? hexEl.textContent : hex;
-            if (hexEl) hexEl.textContent = '✓ Copied!';
-            setTimeout(() => {
-              if (hexEl) hexEl.textContent = orig;
-            }, 1800);
-          } catch (err) {
-            console.error('Failed to copy hex:', err);
-          }
-        }
-      });
-    });
   }
 }
 

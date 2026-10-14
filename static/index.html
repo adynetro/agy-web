@@ -184,28 +184,16 @@
       </div>
 
       <div class="sidebar-footer">
-        <div id="discord-pill" class="channel-status-pill" title="Configure Discord Bot Integration">
-          <div style="display: flex; align-items: center;">
-            <span id="discord-indicator" class="status-indicator offline"></span>
-            <span id="discord-status-text">Discord: OFFLINE</span>
+        <button id="btn-settings" class="btn-sidebar-settings" title="Settings, Channels & Host Information">
+          <div class="sidebar-settings-left">
+            <span class="settings-gear-icon">⚙️</span>
+            <span class="settings-btn-label">Settings</span>
           </div>
-          <span style="font-size: 10px; color: var(--accent-primary); font-weight: 600;">CONFIG</span>
-        </div>
-
-        <div class="footer-buttons">
-          <button id="btn-design-kit" class="btn-icon-footer" title="Antigravity Design System & Assets">
-            <span>🎨</span> Kit
-          </button>
-          <button id="btn-channels" class="btn-icon-footer" title="Channels & Integrations">
-            <span>🌐</span> Channels
-          </button>
-          <button id="btn-settings" class="btn-icon-footer" title="Settings">
-            <span>⚙️</span> Settings
-          </button>
-          <button id="btn-system" class="btn-icon-footer" title="System Specs">
-            <span>💻</span> Host
-          </button>
-        </div>
+          <div class="sidebar-settings-right">
+            <span id="discord-indicator" class="status-indicator offline"></span>
+            <span id="discord-status-text" class="discord-status-label">Discord: OFFLINE</span>
+          </div>
+        </button>
       </div>
     </aside>
     <div id="sidebar-backdrop" class="sidebar-backdrop"></div>
@@ -236,47 +224,8 @@
         </div>
       </div>
 
-        <!-- Header Mini System, Quota & Token Pills -->
-        <div class="header-meters" id="header-meters" title="System Resources, Quota & Token Telemetry">
-          <div class="header-meter-pill" title="Host CPU Utilization">
-            <span class="meter-icon">⚡</span>
-            <span class="meter-mini-name">CPU</span>
-            <span id="header-cpu-val" class="meter-mini-val">0%</span>
-          </div>
-          <div class="header-meter-pill" title="Host Memory (RAM) Utilization">
-            <span class="meter-icon">🧠</span>
-            <span class="meter-mini-name">RAM</span>
-            <span id="header-ram-val" class="meter-mini-val">0%</span>
-          </div>
-          <div class="header-meter-pill" title="Host Disk Storage Utilization">
-            <span class="meter-icon">💾</span>
-            <span class="meter-mini-name">Storage</span>
-            <span id="header-disk-val" class="meter-mini-val">0%</span>
-          </div>
-          <div class="header-meter-pill" id="header-quota-pill" title="Gemini 5-Hour Limit Remaining">
-            <span class="meter-icon">📊</span>
-            <span class="meter-mini-name">Quota</span>
-            <span id="header-quota-val" class="meter-mini-val">--%</span>
-          </div>
-          <div class="header-meter-pill" title="Tokens in Current Turn">
-            <span class="meter-icon">🪙</span>
-            <span class="meter-mini-name">Tokens</span>
-            <span id="header-tokens-val" class="meter-mini-val">0</span>
-          </div>
-          <div class="header-meter-pill" title="Turn Execution Latency">
-            <span class="meter-icon">⏱️</span>
-            <span class="meter-mini-name">Latency</span>
-            <span id="header-latency-val" class="meter-mini-val">--</span>
-          </div>
-        </div>
-
         <div class="chat-controls">
           <div class="chat-selects-group">
-            <button id="btn-header-design" class="btn-header-design" title="Antigravity Design System & Assets">
-              <span class="design-sparkle">✦</span>
-              <span class="btn-label">Design Kit</span>
-            </button>
-
             <select id="model-select" class="select-control" title="Select Model">
               <option value="gemini-3.8-flash-high">Gemini 3.8 Flash (High)</option>
             </select>
@@ -416,286 +365,156 @@
       </div>
     </main>
 
-    <!-- Antigravity Design System & Asset Kit Modal -->
-    <div id="modal-design-system" class="modal-overlay" style="display: none;">
+    <!-- Unified Settings, Channels & Host Information Modal -->
+    <div id="modal-settings" class="modal-overlay" style="display: none;">
       <div class="modal-card modal-large">
         <div class="modal-header">
-          <div class="design-modal-brand-header">
-            <img src="/static/assets/antigravity-mark.svg" alt="Antigravity" style="width: 28px; height: 28px;" />
+          <div class="settings-modal-header-title">
+            <span class="settings-header-icon">⚙️</span>
             <div>
-              <h3 class="modal-title" style="margin: 0;">Google Antigravity Design System</h3>
-              <div style="font-size: 12px; color: var(--text-muted);">Official Branding, Google Sans Flex Typography & Color Tokens</div>
+              <h3 class="modal-title" style="margin: 0;">Settings &amp; Integrations</h3>
+              <div style="font-size: 12px; color: var(--text-muted);">Manage agent defaults, Discord channels, and host system specs</div>
             </div>
           </div>
           <button class="btn-close-modal">&times;</button>
         </div>
-        <div class="modal-body design-modal-body">
-          <!-- Tabs inside Design System -->
-          <div class="design-section-tabs">
-            <button class="design-tab-btn active" data-design-tab="tab-ds-logos">Official Logos</button>
-            <button class="design-tab-btn" data-design-tab="tab-ds-fonts">Google Sans Flex</button>
-            <button class="design-tab-btn" data-design-tab="tab-ds-colors">Colors & Tokens</button>
-          </div>
 
-          <!-- Logos Tab -->
-          <div id="tab-ds-logos" class="design-tab-content active">
-            <div class="design-assets-grid">
-              <!-- Emblem Card -->
-              <div class="design-asset-card">
-                <div class="design-card-preview-box">
-                  <div class="emblem-preview-glow"></div>
-                  <img src="/static/assets/antigravity-mark.svg" alt="Antigravity Mark" style="width: 84px; height: 84px;" />
-                </div>
-                <div class="design-asset-info">
-                  <div class="design-asset-title">Antigravity Emblem (Portal Mark)</div>
-                  <div class="design-asset-desc">Multi-color Google glow (Blue, Yellow, Red, Green) inside the inverted-gravity portal mask.</div>
-                  <div class="design-asset-actions">
-                    <button class="btn-copy-svg" data-src="/static/assets/antigravity-mark.svg">📋 Copy SVG</button>
-                    <a href="/static/assets/antigravity-mark.svg" download="antigravity-mark.svg" class="btn-download-asset">⬇ Download</a>
-                  </div>
-                </div>
-              </div>
+        <!-- Settings Navigation Tabs -->
+        <div class="settings-nav-tabs">
+          <button class="settings-tab-btn active" data-tab="tab-general" id="tab-btn-general">
+            <span>⚙️</span> General
+          </button>
+          <button class="settings-tab-btn" data-tab="tab-discord" id="tab-btn-discord">
+            <span>💬</span> Discord &amp; Channels
+            <span id="settings-discord-dot" class="status-indicator offline" style="margin-left: 6px; width: 6px; height: 6px;"></span>
+          </button>
+          <button class="settings-tab-btn" data-tab="tab-host" id="tab-btn-host">
+            <span>💻</span> Host &amp; System
+          </button>
+        </div>
 
-              <!-- Full Wordmark Card -->
-              <div class="design-asset-card">
-                <div class="design-card-preview-box" style="background: var(--bg-primary);">
-                  <img src="/static/assets/antigravity-logo.svg" alt="Google Antigravity Logo" style="max-width: 220px; height: auto;" />
-                </div>
-                <div class="design-asset-info">
-                  <div class="design-asset-title">Google Antigravity Full Wordmark</div>
-                  <div class="design-asset-desc">Official vector wordmark with adaptive currentColor text fill for dark & light themes.</div>
-                  <div class="design-asset-actions">
-                    <button class="btn-copy-svg" data-src="/static/assets/antigravity-logo.svg">📋 Copy SVG</button>
-                    <a href="/static/assets/antigravity-logo.svg" download="antigravity-logo.svg" class="btn-download-asset">⬇ Download</a>
-                  </div>
-                </div>
-              </div>
+        <div class="modal-body settings-modal-body">
+          <!-- Tab 1: General Agent Settings -->
+          <div id="tab-general" class="settings-tab-content active">
+            <div class="form-group">
+              <label class="form-label" for="settings-model">Default Model</label>
+              <input id="settings-model" type="text" class="form-input" value="gemini-3.8-flash-high" />
             </div>
-          </div>
 
-          <!-- Typography Tab -->
-          <div id="tab-ds-fonts" class="design-tab-content">
-            <div class="font-interactive-box">
-              <div class="font-header-row">
+            <div class="form-group">
+              <label class="form-label" for="settings-effort">Default Effort</label>
+              <select id="settings-effort" class="form-input">
+                <option value="low">Low</option>
+                <option value="medium">Medium</option>
+                <option value="high" selected>High</option>
+                <option value="max">Max</option>
+              </select>
+            </div>
+
+            <div class="form-group">
+              <label class="form-label" for="settings-mode">Default Mode</label>
+              <select id="settings-mode" class="form-input">
+                <option value="auto" selected>Auto</option>
+                <option value="plan">Plan</option>
+                <option value="accept-edits">Mode: Accept Edits</option>
+              </select>
+            </div>
+
+            <div class="form-group">
+              <label class="form-label" for="settings-cwd">Default Workspace CWD</label>
+              <input id="settings-cwd" type="text" class="form-input" placeholder="Default working directory" />
+            </div>
+
+            <div class="form-group">
+              <div class="toggle-row">
                 <div>
-                  <h4 style="margin: 0; font-size: 16px; font-weight: 600;">Google Sans Flex Variable Font</h4>
-                  <div style="font-size: 12px; color: var(--text-muted);">Optical size (opsz 8..144) & Variable weight (wght 100..900)</div>
+                  <div class="form-label">Auto-approve Tool Permissions</div>
+                  <div class="form-desc">Run with <code>--dangerously-skip-permissions</code> for headless mode</div>
                 </div>
-                <span class="font-badge">Variable Axis</span>
+                <label class="switch">
+                  <input id="settings-skip-permissions" type="checkbox" checked>
+                  <span class="slider"></span>
+                </label>
               </div>
+            </div>
 
-              <div class="font-sliders-row">
-                <div class="font-slider-group">
-                  <label>Weight (wght): <span id="val-slider-wght">500</span></label>
-                  <input type="range" id="slider-wght" min="100" max="900" step="10" value="500" />
-                </div>
-                <div class="font-slider-group">
-                  <label>Optical Size (opsz): <span id="val-slider-opsz">24</span></label>
-                  <input type="range" id="slider-opsz" min="8" max="144" step="1" value="24" />
-                </div>
-              </div>
-
-              <div class="font-preview-area" id="font-live-preview" style="font-family: 'Google Sans Flex', sans-serif; font-variation-settings: 'wght' 500, 'opsz' 24;">
-                Google Antigravity AI-First Development Platform
-              </div>
-              <div class="font-mono-preview-area" style="font-family: 'Google Sans Mono', monospace;">
-                const agent = new Antigravity({ model: 'gemini-3.8-flash-high', runtime: 'linux' });
-              </div>
+            <div style="display: flex; justify-content: flex-end; margin-top: 8px;">
+              <button id="btn-save-settings" class="btn-primary">Save General Settings</button>
             </div>
           </div>
 
-          <!-- Colors Tab -->
-          <div id="tab-ds-colors" class="design-tab-content">
-            <div class="colors-grid">
-              <div class="color-swatch-card" data-color="#3186FF">
-                <div class="swatch-color-box" style="background: #3186FF;"></div>
-                <div class="swatch-info">
-                  <div class="swatch-name">Antigravity Blue</div>
-                  <div class="swatch-hex">#3186FF</div>
-                </div>
-              </div>
-              <div class="color-swatch-card" data-color="#FFE432">
-                <div class="swatch-color-box" style="background: #FFE432;"></div>
-                <div class="swatch-info">
-                  <div class="swatch-name">Laser Yellow</div>
-                  <div class="swatch-hex">#FFE432</div>
-                </div>
-              </div>
-              <div class="color-swatch-card" data-color="#FC413D">
-                <div class="swatch-color-box" style="background: #FC413D;"></div>
-                <div class="swatch-info">
-                  <div class="swatch-name">Coral Red</div>
-                  <div class="swatch-hex">#FC413D</div>
-                </div>
-              </div>
-              <div class="color-swatch-card" data-color="#00B95C">
-                <div class="swatch-color-box" style="background: #00B95C;"></div>
-                <div class="swatch-info">
-                  <div class="swatch-name">Emerald Green</div>
-                  <div class="swatch-hex">#00B95C</div>
-                </div>
-              </div>
-              <div class="color-swatch-card" data-color="#0D0E12">
-                <div class="swatch-color-box" style="background: #0D0E12; border: 1px solid #333;"></div>
-                <div class="swatch-info">
-                  <div class="swatch-name">Deep Obsidian</div>
-                  <div class="swatch-hex">#0D0E12</div>
-                </div>
-              </div>
-              <div class="color-swatch-card" data-color="#16171D">
-                <div class="swatch-color-box" style="background: #16171D; border: 1px solid #333;"></div>
-                <div class="swatch-info">
-                  <div class="swatch-name">Cosmic Slate</div>
-                  <div class="swatch-hex">#16171D</div>
-                </div>
+          <!-- Tab 2: Discord & Channels -->
+          <div id="tab-discord" class="settings-tab-content">
+            <div style="background-color: var(--bg-tertiary); padding: 14px; border-radius: var(--radius-sm); border: 1px solid var(--border-light);">
+              <div id="discord-live-status">
+                <strong>Loading Discord status...</strong>
               </div>
             </div>
-          </div>
-        </div>
-        <div class="modal-footer">
-          <button class="btn-secondary btn-modal-cancel">Close</button>
-        </div>
-      </div>
-    </div>
 
-    <!-- Channels & Discord Configuration Modal -->
-    <div id="modal-channels" class="modal-overlay" style="display: none;">
-      <div class="modal-card">
-        <div class="modal-header">
-          <h3 class="modal-title">Channels & Integrations</h3>
-          <button class="btn-close-modal">&times;</button>
-        </div>
-        <div class="modal-body">
-          <div style="background-color: var(--bg-tertiary); padding: 12px; border-radius: var(--radius-sm); border: 1px solid var(--border-light);">
-            <div id="discord-live-status">
-              <strong>Loading Discord status...</strong>
+            <div class="form-group">
+              <div class="toggle-row">
+                <div>
+                  <div class="form-label">Enable Discord Bot</div>
+                  <div class="form-desc">Allow users to chat with agy directly via Discord</div>
+                </div>
+                <label class="switch">
+                  <input id="discord-enable-toggle" type="checkbox">
+                  <span class="slider"></span>
+                </label>
+              </div>
+            </div>
+
+            <div class="form-group">
+              <label class="form-label" for="discord-token-input">Discord Bot Token</label>
+              <div class="form-desc">From Discord Developer Portal &gt; Applications &gt; Bot</div>
+              <input id="discord-token-input" type="password" class="form-input" placeholder="Enter Bot Token" />
+            </div>
+
+            <div class="form-group">
+              <label class="form-label" for="discord-prefix-input">Command Prefix</label>
+              <div class="form-desc">Prefix for bot commands in Discord (e.g. <code>!agy</code>)</div>
+              <input id="discord-prefix-input" type="text" class="form-input" value="!agy" />
+            </div>
+
+            <div class="form-group">
+              <label class="form-label" for="discord-channels-input">Allowed Channel IDs (Optional)</label>
+              <div class="form-desc">Comma-separated channel IDs. Leave empty to allow all channels</div>
+              <input id="discord-channels-input" type="text" class="form-input" placeholder="e.g. 123456789012345678" />
+            </div>
+
+            <div class="form-group">
+              <div class="toggle-row">
+                <div>
+                  <div class="form-label">Auto-create Threads</div>
+                  <div class="form-desc">Automatically create a thread for each new prompt in guild channels</div>
+                </div>
+                <label class="switch">
+                  <input id="discord-autothread-toggle" type="checkbox">
+                  <span class="slider"></span>
+                </label>
+              </div>
+            </div>
+
+            <div style="background-color: rgba(49, 134, 255, 0.08); border: 1px solid rgba(49, 134, 255, 0.25); padding: 12px; border-radius: var(--radius-sm); font-size: 12px; color: #8ab4f8; line-height: 1.5;">
+              💡 <strong>Discord Setup Tip:</strong> In the Discord Developer Portal under <strong>Bot &gt; Privileged Gateway Intents</strong>, make sure <strong>Message Content Intent</strong> is enabled so the bot can read incoming prompt text.
+            </div>
+
+            <div style="display: flex; justify-content: flex-end; margin-top: 8px;">
+              <button id="btn-save-discord" class="btn-primary">Save &amp; Restart Discord Bot</button>
             </div>
           </div>
 
-          <div class="form-group">
-            <div class="toggle-row">
-              <div>
-                <div class="form-label">Enable Discord Bot</div>
-                <div class="form-desc">Allow users to chat with agy directly via Discord</div>
-              </div>
-              <label class="switch">
-                <input id="discord-enable-toggle" type="checkbox">
-                <span class="slider"></span>
-              </label>
+          <!-- Tab 3: Host & System Specs -->
+          <div id="tab-host" class="settings-tab-content">
+            <div id="system-info-content" style="background-color: var(--code-bg); padding: 14px; border-radius: var(--radius-sm); border: 1px solid var(--border-color);">
+              Loading system specs...
             </div>
-          </div>
-
-          <div class="form-group">
-            <label class="form-label" for="discord-token-input">Discord Bot Token</label>
-            <div class="form-desc">From Discord Developer Portal &gt; Applications &gt; Bot</div>
-            <input id="discord-token-input" type="password" class="form-input" placeholder="Enter Bot Token" />
-          </div>
-
-          <div class="form-group">
-            <label class="form-label" for="discord-prefix-input">Command Prefix</label>
-            <div class="form-desc">Prefix for bot commands in Discord (e.g. <code>!agy</code>)</div>
-            <input id="discord-prefix-input" type="text" class="form-input" value="!agy" />
-          </div>
-
-          <div class="form-group">
-            <label class="form-label" for="discord-channels-input">Allowed Channel IDs (Optional)</label>
-            <div class="form-desc">Comma-separated channel IDs. Leave empty to allow all channels</div>
-            <input id="discord-channels-input" type="text" class="form-input" placeholder="e.g. 123456789012345678" />
-          </div>
-
-          <div class="form-group">
-            <div class="toggle-row">
-              <div>
-                <div class="form-label">Auto-create Threads</div>
-                <div class="form-desc">Automatically create a thread for each new prompt in guild channels</div>
-              </div>
-              <label class="switch">
-                <input id="discord-autothread-toggle" type="checkbox">
-                <span class="slider"></span>
-              </label>
-            </div>
-          </div>
-
-          <div style="background-color: rgba(49, 134, 255, 0.08); border: 1px solid rgba(49, 134, 255, 0.25); padding: 12px; border-radius: var(--radius-sm); font-size: 12px; color: #8ab4f8; line-height: 1.5;">
-            💡 <strong>Discord Setup Tip:</strong> In the Discord Developer Portal under <strong>Bot &gt; Privileged Gateway Intents</strong>, make sure <strong>Message Content Intent</strong> is enabled so the bot can read incoming prompt text.
-          </div>
-        </div>
-        <div class="modal-footer">
-          <button class="btn-secondary btn-modal-cancel">Cancel</button>
-          <button id="btn-save-discord" class="btn-primary">Save &amp; Restart Bot</button>
-        </div>
-      </div>
-    </div>
-
-    <!-- Settings Modal -->
-    <div id="modal-settings" class="modal-overlay" style="display: none;">
-      <div class="modal-card">
-        <div class="modal-header">
-          <h3 class="modal-title">Antigravity Agent Settings</h3>
-          <button class="btn-close-modal">&times;</button>
-        </div>
-        <div class="modal-body">
-          <div class="form-group">
-            <label class="form-label" for="settings-model">Default Model</label>
-            <input id="settings-model" type="text" class="form-input" value="gemini-3.8-flash-high" />
-          </div>
-
-          <div class="form-group">
-            <label class="form-label" for="settings-effort">Default Effort</label>
-            <select id="settings-effort" class="form-input">
-              <option value="low">Low</option>
-              <option value="medium">Medium</option>
-              <option value="high" selected>High</option>
-              <option value="max">Max</option>
-            </select>
-          </div>
-
-          <div class="form-group">
-            <label class="form-label" for="settings-mode">Default Mode</label>
-            <select id="settings-mode" class="form-input">
-              <option value="auto" selected>Auto</option>
-              <option value="plan">Plan</option>
-              <option value="accept-edits">Accept Edits</option>
-            </select>
-          </div>
-
-          <div class="form-group">
-            <label class="form-label" for="settings-cwd">Default Workspace CWD</label>
-            <input id="settings-cwd" type="text" class="form-input" placeholder="Default working directory" />
-          </div>
-
-          <div class="form-group">
-            <div class="toggle-row">
-              <div>
-                <div class="form-label">Auto-approve Tool Permissions</div>
-                <div class="form-desc">Run with <code>--dangerously-skip-permissions</code> for headless mode</div>
-              </div>
-              <label class="switch">
-                <input id="settings-skip-permissions" type="checkbox" checked>
-                <span class="slider"></span>
-              </label>
+            <div style="display: flex; justify-content: flex-end; margin-top: 8px;">
+              <button id="btn-refresh-system" class="btn-secondary">↻ Refresh System Specs</button>
             </div>
           </div>
         </div>
-        <div class="modal-footer">
-          <button class="btn-secondary btn-modal-cancel">Cancel</button>
-          <button id="btn-save-settings" class="btn-primary">Save Settings</button>
-        </div>
-      </div>
-    </div>
 
-    <!-- System Specs Modal -->
-    <div id="modal-system" class="modal-overlay" style="display: none;">
-      <div class="modal-card">
-        <div class="modal-header">
-          <h3 class="modal-title">Host & Container Information</h3>
-          <button class="btn-close-modal">&times;</button>
-        </div>
-        <div class="modal-body">
-          <div id="system-info-content" style="background-color: var(--code-bg); padding: 14px; border-radius: var(--radius-sm); border: 1px solid var(--border-color);">
-            Loading system specs...
-          </div>
-        </div>
         <div class="modal-footer">
           <button class="btn-secondary btn-modal-cancel">Close</button>
         </div>

@@ -635,6 +635,51 @@ button, a, input, select, textarea, .suggestion-card, .conv-item, .design-tab-bt
   gap: 8px;
 }
 
+.btn-sidebar-settings {
+  width: 100%;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 10px 14px;
+  background-color: var(--bg-tertiary);
+  border: 1px solid var(--border-color);
+  border-radius: var(--radius-md);
+  color: var(--text-primary);
+  font-family: var(--font-sans);
+  font-size: 13.5px;
+  font-weight: 500;
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.btn-sidebar-settings:hover {
+  background-color: var(--bg-hover);
+  border-color: var(--accent-primary);
+  box-shadow: 0 0 10px rgba(49, 134, 255, 0.15);
+}
+
+.sidebar-settings-left {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-weight: 600;
+}
+
+.settings-gear-icon {
+  font-size: 15px;
+}
+
+.sidebar-settings-right {
+  display: flex;
+  align-items: center;
+  font-size: 11.5px;
+  color: var(--text-muted);
+}
+
+.discord-status-label {
+  letter-spacing: 0.2px;
+}
+
 .btn-icon-footer {
   flex: 1;
   padding: 8px;
@@ -2107,10 +2152,69 @@ input:checked + .slider:before {
   color: var(--google-yellow);
 }
 
-/* Modal Large Variant for Design System */
+/* Modal Large Variant for Settings & Modals */
 .modal-large {
   max-width: 760px;
   width: 90vw;
+}
+
+/* Settings Modal Navigation Tabs */
+.settings-modal-header-title {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.settings-header-icon {
+  font-size: 24px;
+}
+
+.settings-nav-tabs {
+  display: flex;
+  gap: 6px;
+  padding: 12px 24px 0 24px;
+  background-color: var(--bg-secondary);
+  border-bottom: 1px solid var(--border-color);
+}
+
+.settings-tab-btn {
+  background: none;
+  border: none;
+  border-bottom: 2px solid transparent;
+  padding: 10px 16px;
+  color: var(--text-muted);
+  font-family: var(--font-sans);
+  font-size: 13.5px;
+  font-weight: 600;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  transition: all 0.15s ease;
+  margin-bottom: -1px;
+}
+
+.settings-tab-btn:hover {
+  color: var(--text-primary);
+  background-color: var(--bg-hover);
+  border-radius: var(--radius-sm) var(--radius-sm) 0 0;
+}
+
+.settings-tab-btn.active {
+  color: var(--accent-primary);
+  border-bottom-color: var(--accent-primary);
+  background-color: var(--bg-card);
+  border-radius: var(--radius-sm) var(--radius-sm) 0 0;
+}
+
+.settings-tab-content {
+  display: none;
+  flex-direction: column;
+  gap: 16px;
+}
+
+.settings-tab-content.active {
+  display: flex;
 }
 
 .design-modal-brand-header {
