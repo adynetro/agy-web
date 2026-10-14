@@ -1832,6 +1832,17 @@ input:checked + .slider:before {
   animation: pulse-dot 1.5s infinite;
 }
 
+.btn-header-cli.drawer-open {
+  background-color: var(--bg-tertiary);
+  border-color: var(--accent-primary);
+  color: var(--accent-primary);
+}
+
+.cli-header-icon {
+  font-size: 13px;
+  line-height: 1;
+}
+
 /* Live Action Status Banner */
 .live-cli-banner {
   padding: 8px 24px 0 24px;
@@ -1913,11 +1924,18 @@ input:checked + .slider:before {
 }
 
 .cli-console-drawer.collapsed {
-  height: 38px !important;
+  display: none !important;
+  height: 0 !important;
+  min-height: 0 !important;
+  border-top: none !important;
+  box-shadow: none !important;
+  overflow: hidden !important;
 }
 
 .cli-console-drawer:not(.collapsed) {
-  height: 240px;
+  display: flex !important;
+  height: 250px;
+  max-height: 45vh;
 }
 
 .cli-console-header {

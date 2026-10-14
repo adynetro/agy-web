@@ -1504,15 +1504,21 @@ ${this.escapeHtml(outputContent)}
 
     if (shouldOpen) {
       this.dom.cliConsoleDrawer.classList.remove('collapsed');
-      if (this.dom.btnCliToggle) this.dom.btnCliToggle.textContent = '▼ Close';
-      if (this.dom.btnHeaderCli) this.dom.btnHeaderCli.classList.add('active');
+      if (this.dom.btnCliToggle) this.dom.btnCliToggle.textContent = '✕ Close';
+      if (this.dom.btnHeaderCli) {
+        this.dom.btnHeaderCli.classList.add('active');
+        this.dom.btnHeaderCli.classList.add('drawer-open');
+      }
       if (this.dom.cliConsoleBody) {
         this.dom.cliConsoleBody.scrollTop = this.dom.cliConsoleBody.scrollHeight;
       }
     } else {
       this.dom.cliConsoleDrawer.classList.add('collapsed');
-      if (this.dom.btnCliToggle) this.dom.btnCliToggle.textContent = '▲ Open';
-      if (this.dom.btnHeaderCli && !this.isGenerating) this.dom.btnHeaderCli.classList.remove('active');
+      if (this.dom.btnCliToggle) this.dom.btnCliToggle.textContent = '✕ Close';
+      if (this.dom.btnHeaderCli) {
+        this.dom.btnHeaderCli.classList.remove('drawer-open');
+        if (!this.isGenerating) this.dom.btnHeaderCli.classList.remove('active');
+      }
     }
   }
 
