@@ -29,6 +29,7 @@ ENV/
 
 # Configuration & Secrets
 config/settings.json
+config/discord_conv_map.json
 !config/settings.example.json
 .env
 
