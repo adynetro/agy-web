@@ -18,7 +18,7 @@ NC='\033[0m' # No Color
 # --- Configuration Defaults ---
 DEFAULT_PORT="8000"
 DEFAULT_HOST="0.0.0.0"
-REPO_URL="https://github.com/adynetro/agy-webui.git" # Override with AGY_WEBUI_REPO if needed
+REPO_URL="https://github.com/adynetro/agy-web.git" # Override with AGY_WEBUI_REPO if needed
 INSTALL_DIR=""
 SKIP_AGY=false
 NO_SERVICE=false
