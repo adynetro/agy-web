@@ -947,20 +947,29 @@ ${this.escapeHtml(outputContent)}
     }
 
     // Message text
-    const textEl = document.createElement('div');
-    textEl.className = 'message-text markdown-body';
-
     if (msg.role === 'user') {
+      const textEl = document.createElement('div');
+      textEl.className = 'message-text markdown-body';
       textEl.textContent = msg.content;
+      bubble.appendChild(textEl);
     } else {
       if (msg.content) {
-        textEl.innerHTML = marked.parse(msg.content);
-        this.attachCopyCodeButtons(textEl);
+        const textEl = document.createElement('div');
+        textEl.className = 'message-text markdown-body';
+        try {
+          textEl.innerHTML = marked.parse(msg.content);
+          this.attachCopyCodeButtons(textEl);
+        } catch (e) {
+          textEl.textContent = msg.content;
+        }
+        bubble.appendChild(textEl);
       } else if (msg.isStreaming) {
+        const textEl = document.createElement('div');
+        textEl.className = 'message-text markdown-body';
         textEl.innerHTML = '<span class="streaming-pulse"></span>';
+        bubble.appendChild(textEl);
       }
     }
-    bubble.appendChild(textEl);
 
     // Metadata footer
     if (msg.usage || msg.duration_seconds) {

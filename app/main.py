@@ -56,6 +56,14 @@ async def serve_index():
     return FileResponse(index_file)
 
 
+@app.get("/favicon.ico")
+@app.get("/apple-touch-icon.png")
+@app.get("/apple-touch-icon-precomposed.png")
+async def serve_favicon():
+    favicon_file = STATIC_DIR / "assets" / "favicon.svg"
+    return FileResponse(favicon_file, media_type="image/svg+xml")
+
+
 def cli():
     import argparse
     import uvicorn

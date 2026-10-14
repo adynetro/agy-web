@@ -197,20 +197,40 @@ class ConversationManager:
                             # Record pending to match with subsequent GENERIC step
                             pending_tool_calls[step_index] = tool_item
 
-                        messages.append({
-                            "role": "assistant",
-                            "step_index": step_index,
-                            "content": content,
-                            "thinking": thinking,
-                            "tool_calls": parsed_tools,
-                            "usage": {
-                                "input_tokens": input_tokens,
-                                "output_tokens": output_tokens,
-                                "thinking_tokens": thinking_tokens,
-                                "cache_read_tokens": cache_read_tokens,
-                            },
-                            "timestamp": created_at,
-                        })
+                        if messages and messages[-1].get("role") == "assistant":
+                            last_msg = messages[-1]
+                            if content:
+                                if last_msg.get("content"):
+                                    last_msg["content"] += "\n" + content
+                                else:
+                                    last_msg["content"] = content
+                            if thinking:
+                                if last_msg.get("thinking"):
+                                    last_msg["thinking"] += "\n" + thinking
+                                else:
+                                    last_msg["thinking"] = thinking
+                            if parsed_tools:
+                                last_msg["tool_calls"].extend(parsed_tools)
+                            if "usage" in last_msg and isinstance(last_msg["usage"], dict):
+                                last_msg["usage"]["input_tokens"] += input_tokens
+                                last_msg["usage"]["output_tokens"] += output_tokens
+                                last_msg["usage"]["thinking_tokens"] += thinking_tokens
+                                last_msg["usage"]["cache_read_tokens"] += cache_read_tokens
+                        else:
+                            messages.append({
+                                "role": "assistant",
+                                "step_index": step_index,
+                                "content": content,
+                                "thinking": thinking,
+                                "tool_calls": parsed_tools,
+                                "usage": {
+                                    "input_tokens": input_tokens,
+                                    "output_tokens": output_tokens,
+                                    "thinking_tokens": thinking_tokens,
+                                    "cache_read_tokens": cache_read_tokens,
+                                },
+                                "timestamp": created_at,
+                            })
 
                     elif step_type == "GENERIC":
                         # Tool execution output
