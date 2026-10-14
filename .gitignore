@@ -1,0 +1,45 @@
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+build/
+develop-eggs/
+dist/
+downloads/
+eggs/
+.eggs/
+lib/
+lib64/
+parts/
+sdist/
+var/
+wheels/
+share/python-wheels/
+*.egg-info/
+.installed.cfg
+*.egg
+
+# Virtual environments
+.venv/
+venv/
+env/
+ENV/
+
+# Configuration & Secrets
+config/settings.json
+!config/settings.example.json
+.env
+
+# Backups & Editor artifacts
+*.bak
+*.prev_bak
+*~
+.vscode/
+.idea/
+.DS_Store
+
+# Antigravity temporary data
+*.log
+scratch/

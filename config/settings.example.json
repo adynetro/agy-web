@@ -1,0 +1,17 @@
+{
+  "host": "0.0.0.0",
+  "port": 8000,
+  "agy_bin": "agy",
+  "default_model": "gemini-3.8-flash-high",
+  "default_effort": "high",
+  "default_mode": "auto",
+  "default_cwd": "",
+  "dangerously_skip_permissions": true,
+  "discord_enabled": false,
+  "discord_bot_token": "",
+  "discord_prefix": "!agy",
+  "discord_allowed_channels": [],
+  "discord_allowed_guilds": [],
+  "discord_auto_thread": false,
+  "discord_show_tools": true
+}
