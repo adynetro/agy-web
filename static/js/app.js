@@ -33,6 +33,10 @@ class AgyApp {
     
     // DOM Elements
     this.dom = {
+      sidebar: document.querySelector('.sidebar'),
+      btnSidebarToggle: document.getElementById('btn-sidebar-toggle'),
+      btnSidebarClose: document.getElementById('btn-sidebar-close'),
+      sidebarBackdrop: document.getElementById('sidebar-backdrop'),
       convList: document.getElementById('conv-list'),
       chatScroll: document.getElementById('chat-scroll'),
       chatInner: document.getElementById('chat-inner'),
@@ -160,6 +164,10 @@ class AgyApp {
     this.currentTheme = theme;
     document.documentElement.setAttribute('data-theme', theme);
     localStorage.setItem('agy_theme', theme);
+    const themeColorMeta = document.getElementById('theme-color-meta');
+    if (themeColorMeta) {
+      themeColorMeta.setAttribute('content', theme === 'light' ? '#f8f9fc' : '#0d0e12');
+    }
     if (this.dom.themeIcon && this.dom.themeLabel) {
       if (theme === 'light') {
         this.dom.themeIcon.textContent = '🌙';
@@ -174,6 +182,25 @@ class AgyApp {
   toggleTheme() {
     const next = this.currentTheme === 'light' ? 'dark' : 'light';
     this.setTheme(next);
+  }
+
+  openSidebar() {
+    if (this.dom.sidebar) this.dom.sidebar.classList.add('open');
+    if (this.dom.sidebarBackdrop) this.dom.sidebarBackdrop.classList.add('active');
+  }
+
+  closeSidebar() {
+    if (this.dom.sidebar) this.dom.sidebar.classList.remove('open');
+    if (this.dom.sidebarBackdrop) this.dom.sidebarBackdrop.classList.remove('active');
+  }
+
+  toggleSidebar() {
+    if (!this.dom.sidebar) return;
+    if (this.dom.sidebar.classList.contains('open')) {
+      this.closeSidebar();
+    } else {
+      this.openSidebar();
+    }
   }
 
   updateGreeting() {
@@ -333,6 +360,58 @@ class AgyApp {
     this.dom.btnSettings.addEventListener('click', () => this.openSettingsModal());
     this.dom.btnSystem.addEventListener('click', () => this.openSystemModal());
 
+    // Mobile Sidebar Drawer Controls
+    if (this.dom.btnSidebarToggle) {
+      this.dom.btnSidebarToggle.addEventListener('click', () => this.toggleSidebar());
+    }
+    if (this.dom.btnSidebarClose) {
+      this.dom.btnSidebarClose.addEventListener('click', () => this.closeSidebar());
+    }
+    if (this.dom.sidebarBackdrop) {
+      this.dom.sidebarBackdrop.addEventListener('click', () => this.closeSidebar());
+    }
+
+    // Touch swipe left on sidebar to dismiss drawer on mobile
+    if (this.dom.sidebar) {
+      let touchStartX = 0;
+      let touchStartY = 0;
+      this.dom.sidebar.addEventListener('touchstart', (e) => {
+        if (e.touches && e.touches[0]) {
+          touchStartX = e.touches[0].clientX;
+          touchStartY = e.touches[0].clientY;
+        }
+      }, { passive: true });
+      this.dom.sidebar.addEventListener('touchend', (e) => {
+        if (e.changedTouches && e.changedTouches[0]) {
+          const deltaX = touchStartX - e.changedTouches[0].clientX;
+          const deltaY = Math.abs(touchStartY - e.changedTouches[0].clientY);
+          // If swiped horizontally to the left by > 45px and not a vertical scroll
+          if (deltaX > 45 && deltaY < 60) {
+            this.closeSidebar();
+          }
+        }
+      }, { passive: true });
+    }
+
+    // Global Escape key to dismiss sidebar drawer and modals
+    document.addEventListener('keydown', (e) => {
+      if (e.key === 'Escape') {
+        this.closeSidebar();
+        document.querySelectorAll('.modal-overlay').forEach(modal => {
+          modal.style.display = 'none';
+        });
+      }
+    });
+
+    // Dismiss modal on backdrop overlay click
+    document.querySelectorAll('.modal-overlay').forEach(overlay => {
+      overlay.addEventListener('click', (e) => {
+        if (e.target === overlay) {
+          overlay.style.display = 'none';
+        }
+      });
+    });
+
     // Modal Close buttons
     document.querySelectorAll('.btn-close-modal, .btn-modal-cancel').forEach(btn => {
       btn.addEventListener('click', (e) => {
@@ -423,6 +502,9 @@ class AgyApp {
 
   async loadConversation(convId) {
     if (this.isGenerating) return;
+    if (window.innerWidth <= 768) {
+      this.closeSidebar();
+    }
     this.activeConversationId = convId;
     this.renderConversationList();
 
@@ -458,6 +540,9 @@ class AgyApp {
 
   startNewChat() {
     if (this.isGenerating) return;
+    if (window.innerWidth <= 768) {
+      this.closeSidebar();
+    }
     this.activeConversationId = null;
     this.messages = [];
     this.dom.convTitle.textContent = 'New Conversation';
@@ -936,6 +1021,7 @@ ${this.escapeHtml(outputContent)}
   // --- Modal Logic ---
 
   async openChannelsModal() {
+    this.closeSidebar();
     this.dom.modalChannels.style.display = 'flex';
     try {
       const res = await fetch('/api/settings');
@@ -1000,6 +1086,7 @@ ${this.escapeHtml(outputContent)}
   }
 
   async openSettingsModal() {
+    this.closeSidebar();
     this.dom.modalSettings.style.display = 'flex';
     try {
       const res = await fetch('/api/settings');
@@ -1364,6 +1451,7 @@ ${this.escapeHtml(outputContent)}
   }
 
   async openSystemModal() {
+    this.closeSidebar();
     this.dom.modalSystem.style.display = 'flex';
     try {
       const res = await fetch('/api/system');
@@ -1392,6 +1480,7 @@ ${this.escapeHtml(outputContent)}
   }
 
   openDesignSystemModal() {
+    this.closeSidebar();
     if (this.dom.modalDesignSystem) {
       this.dom.modalDesignSystem.style.display = 'flex';
     }
