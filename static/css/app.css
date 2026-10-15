@@ -1795,9 +1795,10 @@ input:checked + .slider:before {
    Live CLI Console & Real-Time Feedback Styles
    ========================================================================== */
 
-/* Header CLI Stream Button */
-.btn-header-cli {
-  display: flex;
+/* Header CLI Stream & Processes Buttons (Unified Design) */
+.btn-header-cli,
+.btn-header-processes {
+  display: inline-flex;
   align-items: center;
   gap: 7px;
   background-color: var(--bg-secondary);
@@ -1810,37 +1811,67 @@ input:checked + .slider:before {
   cursor: pointer;
   transition: all 0.2s ease;
   user-select: none;
+  height: 36px;
+  box-sizing: border-box;
 }
 
-.btn-header-cli:hover {
+.btn-header-cli:hover,
+.btn-header-processes:hover {
   background-color: var(--bg-hover);
   border-color: var(--accent-primary);
 }
 
-.cli-btn-dot {
+.cli-btn-dot,
+.processes-btn-dot {
   width: 8px;
   height: 8px;
   border-radius: 50%;
   background-color: #64748b;
   display: inline-block;
   transition: all 0.3s ease;
+  flex-shrink: 0;
 }
 
-.btn-header-cli.active .cli-btn-dot {
+.btn-header-cli.active .cli-btn-dot,
+.btn-header-processes.active .processes-btn-dot,
+.btn-header-processes.has-active .processes-btn-dot,
+.processes-btn-dot.active {
   background-color: #10b981;
   box-shadow: 0 0 8px #10b981;
   animation: pulse-dot 1.5s infinite;
 }
 
-.btn-header-cli.drawer-open {
+.btn-header-cli.drawer-open,
+.btn-header-processes.modal-open {
   background-color: var(--bg-tertiary);
   border-color: var(--accent-primary);
   color: var(--accent-primary);
 }
 
-.cli-header-icon {
+.cli-header-icon,
+.processes-header-icon {
   font-size: 13px;
   line-height: 1;
+}
+
+.processes-count-badge {
+  background: var(--bg-tertiary);
+  border: 1px solid var(--border-color);
+  font-size: 11px;
+  font-family: var(--font-mono);
+  font-weight: 700;
+  padding: 1px 6px;
+  border-radius: var(--radius-full);
+  color: var(--text-muted);
+  transition: all 0.2s ease;
+  line-height: 1.2;
+}
+
+.btn-header-processes.has-active .processes-count-badge,
+.processes-count-badge.has-active {
+  background: rgba(16, 185, 129, 0.15);
+  color: #10b981;
+  border-color: rgba(16, 185, 129, 0.4);
 }
 
 /* Live Action Status Banner */
@@ -3172,74 +3203,6 @@ input:checked + .slider:before {
    PROCESS MANAGER & /BTW STEERING STYLES
    ========================================================================== */
 
-/* Header Processes Button */
-.btn-header-processes {
-  display: flex;
-  align-items: center;
-  gap: 7px;
-  background-color: var(--bg-secondary);
-  color: var(--text-primary);
-  border: 1px solid var(--border-color);
-  padding: 6px 14px;
-  border-radius: var(--radius-full);
-  font-size: 13px;
-  font-weight: 600;
-  cursor: pointer;
-  transition: all 0.2s ease;
-  user-select: none;
-}
-
-.btn-header-processes:hover {
-  background-color: var(--bg-hover);
-  border-color: var(--accent-primary);
-}
-
-.btn-header-processes.modal-open {
-  background-color: var(--bg-tertiary);
-  border-color: var(--accent-primary);
-  color: var(--accent-primary);
-}
-
-.processes-header-icon {
-  font-size: 13px;
-  line-height: 1;
-}
-
-.processes-btn-dot {
-  width: 8px;
-  height: 8px;
-  border-radius: 50%;
-  background-color: #64748b;
-  display: inline-block;
-  transition: all 0.3s ease;
-}
-
-.btn-header-processes.active .processes-btn-dot,
-.btn-header-processes.has-active .processes-btn-dot,
-.processes-btn-dot.active {
-  background-color: #10b981;
-  box-shadow: 0 0 8px #10b981;
-  animation: pulse-dot 1.5s infinite;
-}
-
-.processes-count-badge {
-  background: var(--bg-tertiary);
-  border: 1px solid var(--border-color);
-  font-size: 11px;
-  font-family: var(--font-mono);
-  font-weight: 700;
-  padding: 1px 7px;
-  border-radius: var(--radius-full);
-  color: var(--text-muted);
-  transition: all 0.2s ease;
-}
-
-.btn-header-processes.has-active .processes-count-badge,
-.processes-count-badge.has-active {
-  background: rgba(16, 185, 129, 0.15);
-  color: #10b981;
-  border-color: rgba(16, 185, 129, 0.4);
-}
 
 /* Live Banner /btw Button */
 .live-banner-actions {
