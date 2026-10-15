@@ -1884,10 +1884,11 @@ ${this.escapeHtml(outputContent)}
     if (this.processes.length === 0) {
       this.dom.processesList.innerHTML = `
         <div class="processes-empty-state">
-          <span class="empty-icon">💤</span>
-          <div style="font-weight: 600; font-size: 15px; margin-bottom: 6px; color: var(--text-normal);">No Active Antigravity Processes</div>
-          <div>All agy CLI processes are currently idle or finished.</div>
-          <div style="font-size: 11.5px; margin-top: 6px; color: var(--text-muted);">Processes launched via terminal or web interface will be detected and listed here in real time.</div>
+          <div class="processes-empty-icon-circle">
+            <span class="processes-empty-icon">⚡</span>
+          </div>
+          <div class="processes-empty-title">No Active Processes</div>
+          <div class="processes-empty-desc">All Google Antigravity processes are currently idle. Interactive CLI sessions or background turns will be detected and monitored here automatically.</div>
         </div>
       `;
       return;
@@ -1898,53 +1899,67 @@ ${this.escapeHtml(outputContent)}
       card.className = `process-card ${proc.is_engine_managed ? 'engine-managed' : ''}`;
 
       const stateBadge = proc.state === 'R' 
-        ? '<span class="proc-status-badge running"><span class="status-pulse-dot"></span> RUNNING</span>'
-        : '<span class="proc-status-badge sleeping">SLEEPING</span>';
+        ? '<span class="status-badge running"><span class="status-pulse-dot"></span> RUNNING</span>'
+        : '<span class="status-badge idle">SLEEPING</span>';
 
       const managedBadge = proc.is_engine_managed 
-        ? '<span class="proc-badge-tag managed">UI MANAGED</span>' 
-        : '<span class="proc-badge-tag system">CLI / SYSTEM</span>';
+        ? '<span class="status-badge managed">MANAGED</span>' 
+        : '<span class="status-badge standalone">CLI</span>';
 
       const title = proc.conversation_title || 'Autonomous CLI Session';
-      const promptSnippet = proc.prompt ? `<div class="proc-meta-prompt"><strong>Prompt:</strong> ${this.escapeHtml(proc.prompt)}</div>` : '';
+      const promptSnippet = proc.prompt ? `
+        <div class="proc-prompt-box">
+          <span class="proc-prompt-label">PROMPT</span>
+          <span class="proc-prompt-text">${this.escapeHtml(proc.prompt)}</span>
+        </div>
+      ` : '';
 
       card.innerHTML = `
         <div class="process-card-header">
-          <div class="proc-header-left">
+          <div class="proc-header-info">
             <span class="proc-pid-pill">PID ${proc.pid}</span>
-            <span class="proc-title">${this.escapeHtml(title)}</span>
+            <span class="proc-card-title" title="${this.escapeHtml(title)}">${this.escapeHtml(title)}</span>
             ${stateBadge}
             ${managedBadge}
           </div>
-          <div class="proc-header-right">
-            <button class="btn-proc-action btn-proc-output" data-pid="${proc.pid}">💻 View Output</button>
-            <button class="btn-proc-action btn-proc-btw" data-pid="${proc.pid}" data-conv="${proc.conversation_id || ''}">⚡ Steer /btw</button>
-            ${proc.conversation_id ? `<button class="btn-proc-action btn-proc-attach" data-conv="${proc.conversation_id}">🔗 Attach</button>` : ''}
-            <button class="btn-proc-action btn-proc-stop" data-pid="${proc.pid}">⏹ Stop</button>
+          <div class="proc-card-actions">
+            <button class="btn-proc-action btn-proc-output" data-pid="${proc.pid}">
+              <span>💻</span> Output
+            </button>
+            <button class="btn-proc-action btn-proc-btw" data-pid="${proc.pid}" data-conv="${proc.conversation_id || ''}">
+              <span>⚡</span> /btw
+            </button>
+            ${proc.conversation_id ? `
+            <button class="btn-proc-action btn-proc-attach" data-conv="${proc.conversation_id}">
+              <span>🔗</span> Attach
+            </button>` : ''}
+            <button class="btn-proc-action btn-proc-stop" data-pid="${proc.pid}">
+              <span>⏹</span> Stop
+            </button>
           </div>
         </div>
         <div class="process-card-body">
-          <div class="proc-stats-grid">
-            <div class="proc-stat-item">
-              <span class="proc-stat-lbl">Memory (RSS):</span>
-              <span class="proc-stat-val">${proc.rss_mb} MB</span>
+          <div class="proc-metrics-grid">
+            <div class="proc-metric-cell">
+              <span class="proc-metric-label">Memory (RSS)</span>
+              <span class="proc-metric-value">${proc.rss_mb} MB</span>
             </div>
-            <div class="proc-stat-item">
-              <span class="proc-stat-lbl">Uptime:</span>
-              <span class="proc-stat-val">${proc.uptime_str || '0s'}</span>
+            <div class="proc-metric-cell">
+              <span class="proc-metric-label">Uptime</span>
+              <span class="proc-metric-value">${proc.uptime_str || '0s'}</span>
             </div>
-            <div class="proc-stat-item">
-              <span class="proc-stat-lbl">Model:</span>
-              <span class="proc-stat-val">${this.escapeHtml(proc.model || 'default')}</span>
+            <div class="proc-metric-cell">
+              <span class="proc-metric-label">Model</span>
+              <span class="proc-metric-value">${this.escapeHtml(proc.model || 'default')}</span>
             </div>
-            <div class="proc-stat-item">
-              <span class="proc-stat-lbl">Mode / Effort:</span>
-              <span class="proc-stat-val">${this.escapeHtml(proc.mode || 'auto')} (${this.escapeHtml(proc.effort || 'default')})</span>
+            <div class="proc-metric-cell">
+              <span class="proc-metric-label">Mode / Effort</span>
+              <span class="proc-metric-value">${this.escapeHtml(proc.mode || 'auto')} · ${this.escapeHtml(proc.effort || 'default')}</span>
             </div>
-            <div class="proc-stat-item full-width">
-              <span class="proc-stat-lbl">Working Dir:</span>
-              <span class="proc-stat-val mono-path">${this.escapeHtml(proc.cwd || '/')}</span>
-            </div>
+          </div>
+          <div class="proc-cwd-row">
+            <span class="proc-cwd-label">DIR:</span>
+            <span class="proc-cwd-path" title="${this.escapeHtml(proc.cwd || '/')}">${this.escapeHtml(proc.cwd || '/')}</span>
           </div>
           ${promptSnippet}
         </div>
@@ -2031,7 +2046,13 @@ ${this.escapeHtml(outputContent)}
     this.dom.procOutputTerminal.innerHTML = '';
 
     if (!lines || lines.length === 0) {
-      this.dom.procOutputTerminal.innerHTML = '<div style="color: var(--text-muted); padding: 15px;">Waiting for telemetry output or transcript steps...</div>';
+      this.dom.procOutputTerminal.innerHTML = `
+        <div style="color: var(--text-muted); padding: 30px 20px; text-align: center; display: flex; flex-direction: column; align-items: center; gap: 8px;">
+          <span style="font-size: 24px;">📡</span>
+          <span style="font-size: 13px; color: var(--text-secondary);">Waiting for execution telemetry output or transcript steps...</span>
+          <span style="font-size: 11.5px; color: var(--text-muted);">As the agent thinks and executes commands, steps will stream here in real time.</span>
+        </div>
+      `;
       return;
     }
 

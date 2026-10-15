@@ -541,33 +541,41 @@
     <div id="modal-processes" class="modal-overlay" style="display: none;">
       <div class="modal-card modal-large modal-processes-card">
         <div class="modal-header">
-          <div class="modal-title-group">
-            <span class="modal-header-icon">⚡</span>
+          <div class="settings-modal-header-title">
+            <span class="settings-header-icon">⚡</span>
             <div>
-              <h3 class="modal-title">Antigravity Process Manager</h3>
-              <div class="modal-subtitle">Monitor, attach to, view live outputs, or steer active agy CLI processes</div>
+              <h3 class="modal-title" style="margin: 0;">Antigravity Process Manager</h3>
+              <div style="font-size: 12px; color: var(--text-muted); margin-top: 2px;">Inspect, attach to, view live outputs, or steer active agy CLI processes</div>
             </div>
           </div>
-          <div class="modal-header-controls">
-            <button id="btn-refresh-processes" class="btn-modal-action" title="Refresh process list">🔄 Refresh</button>
+          <div style="display: flex; align-items: center; gap: 8px;">
+            <button id="btn-refresh-processes" class="btn-secondary btn-header-refresh" title="Refresh process list">
+              <span>🔄</span> Refresh
+            </button>
             <button class="btn-close-modal">&times;</button>
           </div>
         </div>
 
-        <div class="processes-modal-body">
-          <div class="processes-toolbar">
-            <div class="processes-stat-pills">
-              <span class="process-stat-pill"><span class="stat-num" id="proc-stat-total">0</span> Total Processes</span>
-              <span class="process-stat-pill"><span class="stat-num stat-active" id="proc-stat-active">0</span> Active Turns</span>
-            </div>
-            <div class="processes-toolbar-actions">
-              <label class="auto-refresh-label">
-                <input type="checkbox" id="proc-auto-refresh-toggle" checked />
-                <span>Auto-refresh (3s)</span>
-              </label>
-            </div>
+        <div class="processes-toolbar">
+          <div class="processes-stat-pills">
+            <span class="process-stat-pill">
+              <span class="stat-indicator-dot"></span>
+              <span class="stat-num" id="proc-stat-total">0</span> Total Processes
+            </span>
+            <span class="process-stat-pill active-pill">
+              <span class="stat-indicator-dot active-dot"></span>
+              <span class="stat-num stat-active" id="proc-stat-active">0</span> Active Turns
+            </span>
           </div>
+          <div class="processes-toolbar-actions">
+            <label class="auto-refresh-label">
+              <input type="checkbox" id="proc-auto-refresh-toggle" checked />
+              <span>Auto-refresh (3s)</span>
+            </label>
+          </div>
+        </div>
 
+        <div class="modal-body processes-modal-body">
           <!-- Processes List Container -->
           <div id="processes-list" class="processes-list">
             <!-- Dynamically populated process cards -->
@@ -584,27 +592,30 @@
     <div id="modal-process-output" class="modal-overlay" style="display: none;">
       <div class="modal-card modal-large modal-proc-output-card">
         <div class="modal-header">
-          <div class="modal-title-group">
-            <span class="modal-header-icon">💻</span>
+          <div class="settings-modal-header-title">
+            <span class="settings-header-icon">💻</span>
             <div>
-              <h3 class="modal-title" id="proc-output-title">Process Output</h3>
-              <div class="modal-subtitle" id="proc-output-subtitle">Streaming execution logs and tool steps</div>
+              <h3 class="modal-title" id="proc-output-title" style="margin: 0;">Process Output</h3>
+              <div id="proc-output-subtitle" style="font-size: 12px; color: var(--text-muted); margin-top: 2px;">Streaming execution logs and tool steps</div>
             </div>
           </div>
-          <div class="modal-header-controls">
-            <button id="btn-proc-output-steer" class="btn-modal-action btn-steer-action">⚡ Send /btw</button>
-            <button id="btn-proc-output-attach" class="btn-modal-action btn-attach-action">🔗 Attach to Chat</button>
-            <button id="btn-proc-output-stop" class="btn-modal-action btn-stop-action">⏹ Stop Process</button>
+          <div style="display: flex; align-items: center; gap: 8px;">
+            <button id="btn-proc-output-steer" class="btn-secondary btn-steer-action">⚡ Steer /btw</button>
+            <button id="btn-proc-output-attach" class="btn-primary btn-attach-action">🔗 Attach</button>
+            <button id="btn-proc-output-stop" class="btn-secondary btn-stop-action">⏹ Stop</button>
             <button class="btn-close-modal">&times;</button>
           </div>
         </div>
-        <div class="proc-output-body">
+        <div class="modal-body proc-output-modal-body">
           <div class="proc-output-terminal" id="proc-output-terminal">
             <!-- Streaming log lines -->
           </div>
         </div>
         <div class="modal-footer" style="display: flex; justify-content: space-between; align-items: center;">
-          <div style="font-size: 11px; color: var(--text-muted); font-family: var(--font-mono);">Live streaming via Antigravity telemetry</div>
+          <div class="proc-output-footer-info">
+            <span class="status-indicator online"></span>
+            <span>Live streaming via Antigravity telemetry</span>
+          </div>
           <button class="btn-secondary btn-modal-cancel">Close</button>
         </div>
       </div>
@@ -614,23 +625,24 @@
     <div id="modal-quick-btw" class="modal-overlay" style="display: none;">
       <div class="modal-card modal-btw-card">
         <div class="modal-header">
-          <div class="modal-title-group">
-            <span class="modal-header-icon btw-glow">⚡</span>
+          <div class="settings-modal-header-title">
+            <span class="settings-header-icon btw-glow">⚡</span>
             <div>
-              <h3 class="modal-title">Steer Model (/btw)</h3>
-              <div class="modal-subtitle">Inject advice, hints, or course corrections into the running agent turn</div>
+              <h3 class="modal-title" style="margin: 0;">Steer Model (/btw)</h3>
+              <div style="font-size: 12px; color: var(--text-muted); margin-top: 2px;">Inject guidance, hints, or course corrections into the active agent turn</div>
             </div>
           </div>
           <button class="btn-close-modal">&times;</button>
         </div>
-        <div class="modal-body" style="padding: 16px 20px;">
-          <div style="margin-bottom: 12px; font-size: 13px; color: var(--text-muted); line-height: 1.5;">
-            If you notice the agent is struggling, repeating an error, or touching the wrong files, send a <strong>/btw</strong> note to steer it in real time without losing context.
+        <div class="modal-body btw-modal-body">
+          <div class="btw-banner-tip">
+            💡 If you notice the agent is struggling, repeating an error, or modifying the wrong files, send a <strong>/btw</strong> hint to steer it without losing context.
           </div>
           <div class="form-group">
+            <label class="form-label" for="btw-modal-input">Steering Guidance / Hint</label>
             <textarea id="btw-modal-input" class="form-input" rows="3" placeholder="e.g. You are editing the wrong file. Please check /root/agy-webui/app/engine.py instead."></textarea>
           </div>
-          <div class="toggle-row" style="margin-top: 10px;">
+          <div class="toggle-row" style="padding-top: 4px;">
             <div>
               <div class="form-label">Interrupt Stuck Tool</div>
               <div class="form-desc">Send SIGINT to terminate a frozen tool/command immediately and apply guidance</div>
@@ -641,7 +653,7 @@
             </label>
           </div>
         </div>
-        <div class="modal-footer" style="display: flex; justify-content: flex-end; gap: 8px;">
+        <div class="modal-footer">
           <button class="btn-secondary btn-modal-cancel">Cancel</button>
           <button id="btn-submit-btw" class="btn-primary btn-btw-submit">⚡ Send /btw Steering</button>
         </div>
