@@ -2,6 +2,7 @@ from __future__ import annotations
 import glob
 import json
 import os
+import re
 import signal
 import time
 import uuid
@@ -18,6 +19,33 @@ from app.engine import engine
 class ProcessManager:
     def __init__(self):
         self._output_tail_cache: Dict[int, deque] = {}
+
+    def _detect_conversation_id(self, pid: int, parsed: Dict[str, Any]) -> Optional[str]:
+        """Resolves conversation ID from CLI flags, engine memory, or open file descriptors."""
+        # 1. From CLI flags
+        if parsed.get("conversation_id"):
+            return parsed["conversation_id"]
+
+        # 2. From engine active PID mapping
+        if pid in engine._active_pids:
+            candidate = engine._active_pids[pid]
+            if candidate and not candidate.startswith("temp_"):
+                return candidate
+
+        # 3. From /proc/{pid}/fd open database or lock files
+        try:
+            for fd_link in glob.glob(f"/proc/{pid}/fd/*"):
+                try:
+                    target = os.readlink(fd_link)
+                    m = re.search(r"/(?:conversations|presence)/([0-9a-fA-F-]{36})\.(?:db|lock)", target)
+                    if m:
+                        return m.group(1)
+                except (OSError, FileNotFoundError):
+                    continue
+        except Exception:
+            pass
+
+        return None
 
     def list_processes(self) -> List[Dict[str, Any]]:
         """Scans /proc for all running Google Antigravity (agy) CLI processes."""
@@ -83,7 +111,7 @@ class ProcessManager:
                 parsed = self._parse_agy_cmdline(cmdline)
 
                 # Check if this process has a known conversation title
-                conv_id = parsed.get("conversation_id")
+                conv_id = self._detect_conversation_id(pid, parsed)
                 conv_title = "CLI Session"
                 if conv_id:
                     conv_title = conv_manager.get_conversation_title(conv_id) or f"Session {conv_id[:8]}"
@@ -197,7 +225,7 @@ class ProcessManager:
             pass
 
         parsed = self._parse_agy_cmdline(cmdline)
-        conv_id = parsed.get("conversation_id")
+        conv_id = self._detect_conversation_id(pid, parsed)
 
         lines: List[Dict[str, Any]] = []
 

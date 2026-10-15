@@ -2654,10 +2654,10 @@ input:checked + .slider:before {
     min-height: 52px;
     padding: 8px 12px;
     display: grid;
-    grid-template-columns: 1fr auto auto;
+    grid-template-columns: 1fr auto auto auto;
     grid-template-areas:
-      "left cli theme"
-      "chips chips chips";
+      "left proc cli theme"
+      "chips chips chips chips";
     align-items: center;
     gap: 8px;
   }
@@ -2722,6 +2722,23 @@ input:checked + .slider:before {
     white-space: nowrap;
     flex-shrink: 0;
     height: 30px;
+  }
+
+  #btn-header-processes {
+    grid-area: proc;
+    padding: 6px 10px;
+    font-size: 12px;
+    height: 36px;
+    border-radius: var(--radius-full);
+  }
+
+  #btn-header-processes .btn-label {
+    display: none;
+  }
+
+  #btn-header-processes .processes-count-badge {
+    padding: 1px 5px;
+    font-size: 10px;
   }
 
   #btn-header-cli {
@@ -3157,38 +3174,52 @@ input:checked + .slider:before {
 
 /* Header Processes Button */
 .btn-header-processes {
-  display: inline-flex;
+  display: flex;
   align-items: center;
   gap: 7px;
-  background: rgba(49, 134, 255, 0.08);
-  border: 1px solid rgba(49, 134, 255, 0.25);
-  border-radius: var(--radius-sm);
-  padding: 6px 12px;
-  font-size: 12px;
-  font-weight: 600;
+  background-color: var(--bg-secondary);
   color: var(--text-primary);
+  border: 1px solid var(--border-color);
+  padding: 6px 14px;
+  border-radius: var(--radius-full);
+  font-size: 13px;
+  font-weight: 600;
   cursor: pointer;
-  transition: all 0.2s cubic-bezier(0.16, 1, 0.3, 1);
+  transition: all 0.2s ease;
+  user-select: none;
 }
 
 .btn-header-processes:hover {
-  background: rgba(49, 134, 255, 0.18);
-  border-color: rgba(49, 134, 255, 0.45);
-  box-shadow: 0 0 12px rgba(49, 134, 255, 0.2);
+  background-color: var(--bg-hover);
+  border-color: var(--accent-primary);
+}
+
+.btn-header-processes.modal-open {
+  background-color: var(--bg-tertiary);
+  border-color: var(--accent-primary);
+  color: var(--accent-primary);
+}
+
+.processes-header-icon {
+  font-size: 13px;
+  line-height: 1;
 }
 
 .processes-btn-dot {
-  width: 7px;
-  height: 7px;
+  width: 8px;
+  height: 8px;
   border-radius: 50%;
-  background-color: var(--text-muted);
+  background-color: #64748b;
+  display: inline-block;
   transition: all 0.3s ease;
 }
 
+.btn-header-processes.active .processes-btn-dot,
+.btn-header-processes.has-active .processes-btn-dot,
 .processes-btn-dot.active {
-  background-color: #00e676;
-  box-shadow: 0 0 8px #00e676;
-  animation: pulse-dot 2s infinite;
+  background-color: #10b981;
+  box-shadow: 0 0 8px #10b981;
+  animation: pulse-dot 1.5s infinite;
 }
 
 .processes-count-badge {
@@ -3197,15 +3228,17 @@ input:checked + .slider:before {
   font-size: 11px;
   font-family: var(--font-mono);
   font-weight: 700;
-  padding: 1px 6px;
+  padding: 1px 7px;
   border-radius: var(--radius-full);
   color: var(--text-muted);
+  transition: all 0.2s ease;
 }
 
+.btn-header-processes.has-active .processes-count-badge,
 .processes-count-badge.has-active {
-  background: rgba(0, 230, 118, 0.15);
-  color: #00e676;
-  border-color: rgba(0, 230, 118, 0.4);
+  background: rgba(16, 185, 129, 0.15);
+  color: #10b981;
+  border-color: rgba(16, 185, 129, 0.4);
 }
 
 /* Live Banner /btw Button */

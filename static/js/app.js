@@ -187,6 +187,9 @@ class AgyApp {
       if (this.activeViewingPid && this.dom.modalProcessOutput && this.dom.modalProcessOutput.style.display === 'flex') {
         this.refreshProcessOutput(this.activeViewingPid);
       }
+      if (!this.isGenerating && this.dom.cliConsoleDrawer && !this.dom.cliConsoleDrawer.classList.contains('collapsed') && this.processes.length > 0) {
+        this.followActiveProcessOutput();
+      }
     }, 3000);
   }
 
@@ -300,7 +303,13 @@ class AgyApp {
 
     // Process Manager Button
     if (this.dom.btnHeaderProcesses) {
-      this.dom.btnHeaderProcesses.addEventListener('click', () => this.openProcessesModal());
+      this.dom.btnHeaderProcesses.addEventListener('click', () => {
+        if (this.dom.modalProcesses && this.dom.modalProcesses.style.display === 'flex') {
+          this.closeProcessesModal();
+        } else {
+          this.openProcessesModal();
+        }
+      });
     }
     if (this.dom.btnRefreshProcesses) {
       this.dom.btnRefreshProcesses.addEventListener('click', () => this.fetchProcesses());
@@ -513,6 +522,9 @@ class AgyApp {
       overlay.addEventListener('click', (e) => {
         if (e.target === overlay) {
           overlay.style.display = 'none';
+          if (overlay.id === 'modal-processes' && this.dom.btnHeaderProcesses) {
+            this.dom.btnHeaderProcesses.classList.remove('modal-open');
+          }
         }
       });
     });
@@ -521,7 +533,12 @@ class AgyApp {
     document.querySelectorAll('.btn-close-modal, .btn-modal-cancel').forEach(btn => {
       btn.addEventListener('click', (e) => {
         const modal = e.target.closest('.modal-overlay');
-        if (modal) modal.style.display = 'none';
+        if (modal) {
+          modal.style.display = 'none';
+          if (modal.id === 'modal-processes' && this.dom.btnHeaderProcesses) {
+            this.dom.btnHeaderProcesses.classList.remove('modal-open');
+          }
+        }
       });
     });
 
@@ -1652,12 +1669,18 @@ ${this.escapeHtml(outputContent)}
       if (this.dom.cliConsoleBody) {
         this.dom.cliConsoleBody.scrollTop = this.dom.cliConsoleBody.scrollHeight;
       }
+      if (!this.isGenerating && this.processes && this.processes.length > 0) {
+        this.followActiveProcessOutput();
+      }
     } else {
       this.dom.cliConsoleDrawer.classList.add('collapsed');
       if (this.dom.btnCliToggle) this.dom.btnCliToggle.textContent = '✕ Close';
       if (this.dom.btnHeaderCli) {
         this.dom.btnHeaderCli.classList.remove('drawer-open');
-        if (!this.isGenerating) this.dom.btnHeaderCli.classList.remove('active');
+        const hasActiveProcs = (this.processes || []).some(p => p.state === 'R' || p.state === 'S' || p.is_engine_managed);
+        if (!this.isGenerating && !hasActiveProcs) {
+          this.dom.btnHeaderCli.classList.remove('active');
+        }
       }
     }
   }
@@ -1830,7 +1853,19 @@ ${this.escapeHtml(outputContent)}
   openProcessesModal() {
     if (this.dom.modalProcesses) {
       this.dom.modalProcesses.style.display = 'flex';
+      if (this.dom.btnHeaderProcesses) {
+        this.dom.btnHeaderProcesses.classList.add('modal-open');
+      }
       this.fetchProcesses();
+    }
+  }
+
+  closeProcessesModal() {
+    if (this.dom.modalProcesses) {
+      this.dom.modalProcesses.style.display = 'none';
+      if (this.dom.btnHeaderProcesses) {
+        this.dom.btnHeaderProcesses.classList.remove('modal-open');
+      }
     }
   }
 
@@ -1856,8 +1891,8 @@ ${this.escapeHtml(outputContent)}
     if (this.dom.procStatTotal) {
       this.dom.procStatTotal.textContent = activeCount;
     }
+    const runningCount = this.processes.filter(p => p.state === 'R' || p.state === 'S' || p.is_engine_managed).length;
     if (this.dom.procStatActive) {
-      const runningCount = this.processes.filter(p => p.state === 'R' || p.state === 'S' || p.is_engine_managed).length;
       this.dom.procStatActive.textContent = runningCount;
     }
 
@@ -1865,15 +1900,78 @@ ${this.escapeHtml(outputContent)}
       if (activeCount > 0) {
         this.dom.processesCountBadge.textContent = activeCount;
         this.dom.processesCountBadge.style.display = 'inline-block';
+        this.dom.processesCountBadge.classList.add('has-active');
         if (this.dom.btnHeaderProcesses) {
           this.dom.btnHeaderProcesses.classList.add('has-active');
+          this.dom.btnHeaderProcesses.classList.add('active');
         }
       } else {
         this.dom.processesCountBadge.style.display = 'none';
+        this.dom.processesCountBadge.classList.remove('has-active');
         if (this.dom.btnHeaderProcesses) {
           this.dom.btnHeaderProcesses.classList.remove('has-active');
+          this.dom.btnHeaderProcesses.classList.remove('active');
         }
       }
+    }
+
+    // Synchronize Follow terminal button with active execution state
+    if (this.dom.btnHeaderCli && !this.isGenerating) {
+      const isDrawerOpen = this.dom.cliConsoleDrawer && !this.dom.cliConsoleDrawer.classList.contains('collapsed');
+      if (runningCount > 0) {
+        this.dom.btnHeaderCli.classList.add('active');
+        if (this.dom.cliLiveIndicator) {
+          this.dom.cliLiveIndicator.className = 'cli-live-indicator live';
+          const topProc = this.processes.find(p => p.state === 'R' || p.is_engine_managed) || this.processes[0];
+          this.dom.cliLiveIndicator.textContent = `LIVE (${topProc.pid})`;
+        }
+      } else {
+        if (!isDrawerOpen) {
+          this.dom.btnHeaderCli.classList.remove('active');
+        }
+        if (this.dom.cliLiveIndicator) {
+          this.dom.cliLiveIndicator.className = 'cli-live-indicator idle';
+          this.dom.cliLiveIndicator.textContent = 'IDLE';
+        }
+      }
+    }
+  }
+
+  async followActiveProcessOutput() {
+    if (this.isGenerating) return;
+    if (!this.processes || this.processes.length === 0) return;
+    const activeProc = this.processes.find(p => p.state === 'R' || p.is_engine_managed) || this.processes[0];
+    if (!activeProc) return;
+
+    try {
+      const res = await fetch(`/api/processes/${activeProc.pid}/output?limit=50`);
+      if (!res.ok) return;
+      const data = await res.json();
+      if (!data.lines || data.lines.length === 0) return;
+
+      const welcome = this.dom.cliConsoleBody.querySelector('.cli-console-welcome');
+      if (welcome || this.dom.cliConsoleBody.children.length === 0) {
+        this.dom.cliConsoleBody.innerHTML = '';
+        data.lines.forEach(l => {
+          let lvl = 'info';
+          if (l.type === 'error' || l.source === 'STDERR') lvl = 'error';
+          else if (l.type === 'warning' || l.type === 'warn') lvl = 'warn';
+
+          let msg = l.message || '';
+          if (!msg && l.label) {
+            msg = `[${l.label}] ${l.content || (l.tool_calls ? JSON.stringify(l.tool_calls) : '')}`;
+          }
+          if (msg) {
+            this.appendCliLog({
+              level: lvl,
+              message: msg,
+              timestamp: l.timestamp ? (new Date(l.timestamp).getTime() / 1000) : undefined,
+            });
+          }
+        });
+      }
+    } catch (err) {
+      console.warn('Failed to follow active process output:', err);
     }
   }
 
@@ -1923,8 +2021,8 @@ ${this.escapeHtml(outputContent)}
             ${managedBadge}
           </div>
           <div class="proc-card-actions">
-            <button class="btn-proc-action btn-proc-output" data-pid="${proc.pid}">
-              <span>💻</span> Output
+            <button class="btn-proc-action btn-proc-output" data-pid="${proc.pid}" title="Follow live terminal output">
+              <span>💻</span> Follow
             </button>
             <button class="btn-proc-action btn-proc-btw" data-pid="${proc.pid}" data-conv="${proc.conversation_id || ''}">
               <span>⚡</span> /btw
@@ -1982,7 +2080,7 @@ ${this.escapeHtml(outputContent)}
       if (btnAttach) {
         btnAttach.addEventListener('click', () => {
           this.attachToConversation(proc.conversation_id);
-          if (this.dom.modalProcesses) this.dom.modalProcesses.style.display = 'none';
+          this.closeProcessesModal();
         });
       }
 
@@ -2014,7 +2112,7 @@ ${this.escapeHtml(outputContent)}
     }
 
     if (this.dom.procOutputTitle) {
-      this.dom.procOutputTitle.textContent = `Process Output (PID ${pid})`;
+      this.dom.procOutputTitle.textContent = `Follow Process (PID ${pid})`;
     }
     if (this.dom.procOutputSubtitle) {
       const convLabel = proc && proc.conversation_title ? `Session: ${proc.conversation_title} | ` : '';

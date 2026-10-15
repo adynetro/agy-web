@@ -239,6 +239,8 @@ class AgentEngine:
                         if init_conv_id:
                             current_conv_id = init_conv_id
                             self._active_processes[init_conv_id] = proc
+                            if proc.pid:
+                                self._active_pids[proc.pid] = init_conv_id
 
                         tools = raw.get("init", {}).get("tools", [])
                         yield {
