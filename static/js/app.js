@@ -125,7 +125,37 @@ class AgyApp {
       modalSettings: document.getElementById('modal-settings'),
       modalChannels: document.getElementById('modal-settings'),
       modalSystem: document.getElementById('modal-settings'),
+
+      // Process Manager & Output Modals
+      btnHeaderProcesses: document.getElementById('btn-header-processes'),
+      processesCountBadge: document.getElementById('processes-count-badge'),
+      modalProcesses: document.getElementById('modal-processes'),
+      btnRefreshProcesses: document.getElementById('btn-refresh-processes'),
+      procAutoRefreshToggle: document.getElementById('proc-auto-refresh-toggle'),
+      processesList: document.getElementById('processes-list'),
+      procStatTotal: document.getElementById('proc-stat-total'),
+      procStatActive: document.getElementById('proc-stat-active'),
+
+      modalProcessOutput: document.getElementById('modal-process-output'),
+      procOutputTitle: document.getElementById('proc-output-title'),
+      procOutputSubtitle: document.getElementById('proc-output-subtitle'),
+      procOutputTerminal: document.getElementById('proc-output-terminal'),
+      btnProcOutputSteer: document.getElementById('btn-proc-output-steer'),
+      btnProcOutputAttach: document.getElementById('btn-proc-output-attach'),
+      btnProcOutputStop: document.getElementById('btn-proc-output-stop'),
+
+      // /btw Steering Elements
+      btnBtw: document.getElementById('btn-btw'),
+      btnBannerBtw: document.getElementById('btn-banner-btw'),
+      modalQuickBtw: document.getElementById('modal-quick-btw'),
+      btwModalInput: document.getElementById('btw-modal-input'),
+      btwInterruptToggle: document.getElementById('btw-interrupt-toggle'),
+      btnSubmitBtw: document.getElementById('btn-submit-btw'),
     };
+
+    this.processes = [];
+    this.activeViewingPid = null;
+    this.activeSteeringConvId = null;
 
     this.currentTheme = 'dark';
     this.init();
@@ -142,6 +172,7 @@ class AgyApp {
     await this.fetchConversations();
     await this.fetchSystemMetrics();
     await this.fetchQuotaMetrics();
+    await this.fetchProcesses();
     this.updateModelTelemetryUI();
     
     // Auto-poll channels status every 10s
@@ -150,6 +181,13 @@ class AgyApp {
     setInterval(() => this.fetchSystemMetrics(), 4000);
     // Auto-poll quota limits every 45s
     setInterval(() => this.fetchQuotaMetrics(), 45000);
+    // Auto-poll processes every 3s
+    setInterval(() => {
+      this.fetchProcesses();
+      if (this.activeViewingPid && this.dom.modalProcessOutput && this.dom.modalProcessOutput.style.display === 'flex') {
+        this.refreshProcessOutput(this.activeViewingPid);
+      }
+    }, 3000);
   }
 
   initTheme() {
@@ -235,7 +273,18 @@ class AgyApp {
     this.dom.promptInput.addEventListener('keydown', (e) => {
       if (e.key === 'Enter' && !e.shiftKey) {
         e.preventDefault();
-        this.sendMessage();
+        const text = this.dom.promptInput.value.trim();
+        if (!text) return;
+
+        if (this.isGenerating) {
+          // If model is currently generating, Enter sends a /btw steering instruction!
+          const cleanBtw = text.startsWith('/btw') ? text.replace(/^\/btw\s*/, '') : text;
+          this.sendBtwSteering(cleanBtw);
+          this.dom.promptInput.value = '';
+          this.dom.promptInput.style.height = 'auto';
+        } else {
+          this.sendMessage();
+        }
       }
     });
 
@@ -248,6 +297,51 @@ class AgyApp {
     this.dom.btnSend.addEventListener('click', () => this.sendMessage());
     this.dom.btnAbort.addEventListener('click', () => this.abortTurn());
     this.dom.btnNewChat.addEventListener('click', () => this.startNewChat());
+
+    // Process Manager Button
+    if (this.dom.btnHeaderProcesses) {
+      this.dom.btnHeaderProcesses.addEventListener('click', () => this.openProcessesModal());
+    }
+    if (this.dom.btnRefreshProcesses) {
+      this.dom.btnRefreshProcesses.addEventListener('click', () => this.fetchProcesses());
+    }
+
+    // /btw Steering Buttons
+    if (this.dom.btnBtw) {
+      this.dom.btnBtw.addEventListener('click', () => this.openQuickBtwModal());
+    }
+    if (this.dom.btnBannerBtw) {
+      this.dom.btnBannerBtw.addEventListener('click', () => this.openQuickBtwModal());
+    }
+    if (this.dom.btnSubmitBtw) {
+      this.dom.btnSubmitBtw.addEventListener('click', () => this.submitQuickBtw());
+    }
+
+    // Process Output Modal Buttons
+    if (this.dom.btnProcOutputSteer) {
+      this.dom.btnProcOutputSteer.addEventListener('click', () => {
+        this.openQuickBtwModal(null, this.activeViewingPid);
+      });
+    }
+    if (this.dom.btnProcOutputAttach) {
+      this.dom.btnProcOutputAttach.addEventListener('click', () => {
+        if (this.activeViewingPid) {
+          const proc = this.processes.find(p => p.pid === this.activeViewingPid);
+          if (proc && proc.conversation_id) {
+            this.attachToConversation(proc.conversation_id);
+            this.dom.modalProcessOutput.style.display = 'none';
+          }
+        }
+      });
+    }
+    if (this.dom.btnProcOutputStop) {
+      this.dom.btnProcOutputStop.addEventListener('click', async () => {
+        if (this.activeViewingPid && confirm(`Stop process PID ${this.activeViewingPid}?`)) {
+          await this.stopProcess(this.activeViewingPid);
+          this.dom.modalProcessOutput.style.display = 'none';
+        }
+      });
+    }
 
     this.dom.modelSelect.addEventListener('change', (e) => {
       this.selectedModel = e.target.value;
@@ -626,7 +720,15 @@ class AgyApp {
 
   sendMessage() {
     const prompt = this.dom.promptInput.value.trim();
-    if (!prompt || this.isGenerating) return;
+    if (!prompt) return;
+
+    if (this.isGenerating || prompt.startsWith('/btw')) {
+      const cleanBtw = prompt.startsWith('/btw') ? prompt.replace(/^\/btw\s*/, '') : prompt;
+      this.sendBtwSteering(cleanBtw);
+      this.dom.promptInput.value = '';
+      this.dom.promptInput.style.height = 'auto';
+      return;
+    }
 
     this.dom.promptInput.value = '';
     this.dom.promptInput.style.height = 'auto';
@@ -682,7 +784,19 @@ class AgyApp {
   }
 
   handleStreamEvent(data) {
-    const type = data.type;
+    const type = data.type || data.event;
+
+    if (type === 'btw_ack' || type === 'btw_injected') {
+      const steerMsg = data.message || 'Steering hint sent to agent';
+      this.appendBtwMessage(steerMsg, data.interrupted);
+      this.updateLiveBannerAction(`⚡ /btw steered: "${steerMsg.slice(0, 38)}..."`);
+      this.appendCliLog({
+        level: 'warn',
+        message: `[STEER /btw] > ${steerMsg}${data.interrupted ? ' (SIGINT issued to stuck tool)' : ''}`,
+        timestamp: Date.now() / 1000
+      });
+      return;
+    }
 
     if (type === 'init') {
       if (data.conversation_id) {
@@ -807,8 +921,15 @@ class AgyApp {
     this.isGenerating = val;
     this.dom.btnSend.style.display = val ? 'none' : 'flex';
     this.dom.btnAbort.style.display = val ? 'flex' : 'none';
-    this.dom.promptInput.disabled = val;
-    if (!val) {
+    if (this.dom.btnBtw) {
+      this.dom.btnBtw.style.display = val ? 'inline-flex' : 'none';
+    }
+    // Always keep prompt input interactive so user can type /btw
+    this.dom.promptInput.disabled = false;
+    if (val) {
+      this.dom.promptInput.placeholder = 'Model is executing... Type /btw <hint> or press Enter to steer';
+    } else {
+      this.dom.promptInput.placeholder = 'Type instructions or prompts... (Shift+Enter for newline)';
       this.currentAssistantMessage = null;
       this.dom.promptInput.focus();
     }
@@ -874,6 +995,25 @@ class AgyApp {
   }
 
   createMessageRowElement(msg) {
+    if (msg.role === 'btw') {
+      const row = document.createElement('div');
+      row.className = 'message-row-btw';
+      const interruptBadge = msg.interrupt ? '<span class="btw-badge-tag" style="border-color: #ef4444; color: #f87171;">INTERRUPTED</span>' : '';
+      row.innerHTML = `
+        <div class="btw-card">
+          <div class="btw-header">
+            <span class="btw-glow">⚡</span>
+            <span>/btw Steering Instruction</span>
+            <span class="btw-badge-tag">DELIVERED</span>
+            ${interruptBadge}
+            <span style="margin-left: auto; font-size: 10px; font-weight: normal; color: rgba(251, 191, 36, 0.7);">${new Date(msg.timestamp || Date.now()).toLocaleTimeString()}</span>
+          </div>
+          <div class="btw-body">${this.escapeHtml(msg.content)}</div>
+        </div>
+      `;
+      return row;
+    }
+
     const row = document.createElement('div');
     row.className = `message-row ${msg.role}`;
 
@@ -1584,6 +1724,373 @@ ${this.escapeHtml(outputContent)}
       barEl.classList.add('critical');
     } else if (pct >= 70) {
       barEl.classList.add('warning');
+    }
+  }
+
+  // --- Process Manager & /btw Steering Methods ---
+
+  openQuickBtwModal(convId = null, pid = null) {
+    if (pid) {
+      const p = (this.processes || []).find(x => x.pid === pid);
+      if (p && p.conversation_id) {
+        this.activeSteeringConvId = p.conversation_id;
+      }
+    } else if (convId) {
+      this.activeSteeringConvId = convId;
+    } else {
+      this.activeSteeringConvId = this.activeConversationId;
+    }
+
+    if (this.dom.modalQuickBtw) {
+      this.dom.modalQuickBtw.style.display = 'flex';
+      if (this.dom.btwModalInput) {
+        this.dom.btwModalInput.value = '';
+        setTimeout(() => this.dom.btwModalInput.focus(), 50);
+      }
+    }
+  }
+
+  submitQuickBtw() {
+    if (!this.dom.btwModalInput) return;
+    const text = this.dom.btwModalInput.value.trim();
+    if (!text) return;
+    const interrupt = this.dom.btwInterruptToggle ? this.dom.btwInterruptToggle.checked : false;
+
+    this.sendBtwSteering(text, interrupt, this.activeSteeringConvId);
+    if (this.dom.modalQuickBtw) {
+      this.dom.modalQuickBtw.style.display = 'none';
+    }
+  }
+
+  async sendBtwSteering(message, interrupt = false, convId = null) {
+    const targetConvId = convId || this.activeConversationId;
+    if (!targetConvId) {
+      alert('No active conversation to steer. Please select or start a session first.');
+      return;
+    }
+
+    // Try WebSocket if connected
+    if (this.ws && this.ws.readyState === WebSocket.OPEN) {
+      try {
+        this.ws.send(JSON.stringify({
+          type: 'btw',
+          message: message,
+          interrupt: interrupt,
+          conversation_id: targetConvId,
+        }));
+      } catch (e) {
+        console.warn('WS send btw failed, falling back to REST:', e);
+      }
+    }
+
+    // Always also POST to REST endpoint to guarantee delivery
+    try {
+      const res = await fetch('/api/processes/btw', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          conversation_id: targetConvId,
+          message: message,
+          interrupt: interrupt,
+        }),
+      });
+      const data = await res.json();
+      if (data.status === 'injected' || data.status === 'ok') {
+        this.appendBtwMessage(message, interrupt);
+      }
+    } catch (err) {
+      console.error('Failed to post /btw steering:', err);
+    }
+  }
+
+  appendBtwMessage(message, interrupt = false) {
+    // Avoid duplicate if already appended recently
+    const lastMsg = this.messages[this.messages.length - 1];
+    if (lastMsg && lastMsg.role === 'btw' && lastMsg.content === message) {
+      return;
+    }
+
+    const btwMsg = {
+      role: 'btw',
+      content: message,
+      interrupt: interrupt,
+      timestamp: new Date().toISOString(),
+    };
+    this.messages.push(btwMsg);
+
+    if (this.dom.welcomeView) {
+      this.dom.welcomeView.style.display = 'none';
+    }
+
+    const row = this.createMessageRowElement(btwMsg);
+    this.dom.chatInner.appendChild(row);
+    this.scrollToBottom();
+  }
+
+  openProcessesModal() {
+    if (this.dom.modalProcesses) {
+      this.dom.modalProcesses.style.display = 'flex';
+      this.fetchProcesses();
+    }
+  }
+
+  async fetchProcesses() {
+    try {
+      const res = await fetch('/api/processes');
+      if (!res.ok) return;
+      const data = await res.json();
+      this.processes = Array.isArray(data) ? data : (data.processes || []);
+
+      this.updateProcessesHeaderBadge();
+
+      if (this.dom.modalProcesses && this.dom.modalProcesses.style.display === 'flex') {
+        this.renderProcessesList();
+      }
+    } catch (err) {
+      console.warn('Failed to fetch processes:', err);
+    }
+  }
+
+  updateProcessesHeaderBadge() {
+    const activeCount = this.processes.length;
+    if (this.dom.procStatTotal) {
+      this.dom.procStatTotal.textContent = activeCount;
+    }
+    if (this.dom.procStatActive) {
+      const runningCount = this.processes.filter(p => p.state === 'R' || p.state === 'S' || p.is_engine_managed).length;
+      this.dom.procStatActive.textContent = runningCount;
+    }
+
+    if (this.dom.processesCountBadge) {
+      if (activeCount > 0) {
+        this.dom.processesCountBadge.textContent = activeCount;
+        this.dom.processesCountBadge.style.display = 'inline-block';
+        if (this.dom.btnHeaderProcesses) {
+          this.dom.btnHeaderProcesses.classList.add('has-active');
+        }
+      } else {
+        this.dom.processesCountBadge.style.display = 'none';
+        if (this.dom.btnHeaderProcesses) {
+          this.dom.btnHeaderProcesses.classList.remove('has-active');
+        }
+      }
+    }
+  }
+
+  renderProcessesList() {
+    if (!this.dom.processesList) return;
+    this.dom.processesList.innerHTML = '';
+
+    if (this.processes.length === 0) {
+      this.dom.processesList.innerHTML = `
+        <div class="processes-empty-state">
+          <span class="empty-icon">💤</span>
+          <div style="font-weight: 600; font-size: 15px; margin-bottom: 6px; color: var(--text-normal);">No Active Antigravity Processes</div>
+          <div>All agy CLI processes are currently idle or finished.</div>
+          <div style="font-size: 11.5px; margin-top: 6px; color: var(--text-muted);">Processes launched via terminal or web interface will be detected and listed here in real time.</div>
+        </div>
+      `;
+      return;
+    }
+
+    this.processes.forEach(proc => {
+      const card = document.createElement('div');
+      card.className = `process-card ${proc.is_engine_managed ? 'engine-managed' : ''}`;
+
+      const stateBadge = proc.state === 'R' 
+        ? '<span class="proc-status-badge running"><span class="status-pulse-dot"></span> RUNNING</span>'
+        : '<span class="proc-status-badge sleeping">SLEEPING</span>';
+
+      const managedBadge = proc.is_engine_managed 
+        ? '<span class="proc-badge-tag managed">UI MANAGED</span>' 
+        : '<span class="proc-badge-tag system">CLI / SYSTEM</span>';
+
+      const title = proc.conversation_title || 'Autonomous CLI Session';
+      const promptSnippet = proc.prompt ? `<div class="proc-meta-prompt"><strong>Prompt:</strong> ${this.escapeHtml(proc.prompt)}</div>` : '';
+
+      card.innerHTML = `
+        <div class="process-card-header">
+          <div class="proc-header-left">
+            <span class="proc-pid-pill">PID ${proc.pid}</span>
+            <span class="proc-title">${this.escapeHtml(title)}</span>
+            ${stateBadge}
+            ${managedBadge}
+          </div>
+          <div class="proc-header-right">
+            <button class="btn-proc-action btn-proc-output" data-pid="${proc.pid}">💻 View Output</button>
+            <button class="btn-proc-action btn-proc-btw" data-pid="${proc.pid}" data-conv="${proc.conversation_id || ''}">⚡ Steer /btw</button>
+            ${proc.conversation_id ? `<button class="btn-proc-action btn-proc-attach" data-conv="${proc.conversation_id}">🔗 Attach</button>` : ''}
+            <button class="btn-proc-action btn-proc-stop" data-pid="${proc.pid}">⏹ Stop</button>
+          </div>
+        </div>
+        <div class="process-card-body">
+          <div class="proc-stats-grid">
+            <div class="proc-stat-item">
+              <span class="proc-stat-lbl">Memory (RSS):</span>
+              <span class="proc-stat-val">${proc.rss_mb} MB</span>
+            </div>
+            <div class="proc-stat-item">
+              <span class="proc-stat-lbl">Uptime:</span>
+              <span class="proc-stat-val">${proc.uptime_str || '0s'}</span>
+            </div>
+            <div class="proc-stat-item">
+              <span class="proc-stat-lbl">Model:</span>
+              <span class="proc-stat-val">${this.escapeHtml(proc.model || 'default')}</span>
+            </div>
+            <div class="proc-stat-item">
+              <span class="proc-stat-lbl">Mode / Effort:</span>
+              <span class="proc-stat-val">${this.escapeHtml(proc.mode || 'auto')} (${this.escapeHtml(proc.effort || 'default')})</span>
+            </div>
+            <div class="proc-stat-item full-width">
+              <span class="proc-stat-lbl">Working Dir:</span>
+              <span class="proc-stat-val mono-path">${this.escapeHtml(proc.cwd || '/')}</span>
+            </div>
+          </div>
+          ${promptSnippet}
+        </div>
+      `;
+
+      // Event listeners for card buttons
+      const btnOutput = card.querySelector('.btn-proc-output');
+      if (btnOutput) {
+        btnOutput.addEventListener('click', () => this.openProcessOutputModal(proc.pid, proc));
+      }
+
+      const btnBtw = card.querySelector('.btn-proc-btw');
+      if (btnBtw) {
+        btnBtw.addEventListener('click', () => {
+          this.openQuickBtwModal(proc.conversation_id, proc.pid);
+        });
+      }
+
+      const btnAttach = card.querySelector('.btn-proc-attach');
+      if (btnAttach) {
+        btnAttach.addEventListener('click', () => {
+          this.attachToConversation(proc.conversation_id);
+          if (this.dom.modalProcesses) this.dom.modalProcesses.style.display = 'none';
+        });
+      }
+
+      const btnStop = card.querySelector('.btn-proc-stop');
+      if (btnStop) {
+        btnStop.addEventListener('click', async () => {
+          if (confirm(`Stop Antigravity process PID ${proc.pid}?`)) {
+            await this.stopProcess(proc.pid);
+          }
+        });
+      }
+
+      this.dom.processesList.appendChild(card);
+    });
+  }
+
+  attachToConversation(convId) {
+    if (!convId) return;
+    if (convId === this.activeConversationId) {
+      return;
+    }
+    this.loadConversation(convId);
+  }
+
+  async openProcessOutputModal(pid, proc = null) {
+    this.activeViewingPid = pid;
+    if (!proc) {
+      proc = (this.processes || []).find(p => p.pid === pid);
+    }
+
+    if (this.dom.procOutputTitle) {
+      this.dom.procOutputTitle.textContent = `Process Output (PID ${pid})`;
+    }
+    if (this.dom.procOutputSubtitle) {
+      const convLabel = proc && proc.conversation_title ? `Session: ${proc.conversation_title} | ` : '';
+      const cmdPreview = proc && proc.cmdline_str ? proc.cmdline_str.slice(0, 70) : 'agy process';
+      this.dom.procOutputSubtitle.textContent = `${convLabel}${cmdPreview}`;
+    }
+
+    if (this.dom.modalProcessOutput) {
+      this.dom.modalProcessOutput.style.display = 'flex';
+    }
+
+    await this.refreshProcessOutput(pid);
+  }
+
+  async refreshProcessOutput(pid) {
+    if (!pid || !this.dom.procOutputTerminal) return;
+    try {
+      const res = await fetch(`/api/processes/${pid}/output`);
+      if (!res.ok) return;
+      const data = await res.json();
+      this.renderProcessOutputTerminal(data.lines || []);
+    } catch (err) {
+      console.warn('Failed to refresh process output:', err);
+    }
+  }
+
+  renderProcessOutputTerminal(lines) {
+    if (!this.dom.procOutputTerminal) return;
+    this.dom.procOutputTerminal.innerHTML = '';
+
+    if (!lines || lines.length === 0) {
+      this.dom.procOutputTerminal.innerHTML = '<div style="color: var(--text-muted); padding: 15px;">Waiting for telemetry output or transcript steps...</div>';
+      return;
+    }
+
+    lines.forEach(l => {
+      const stepDiv = document.createElement('div');
+      const stepType = (l.type || 'info').toLowerCase();
+      let extraClass = '';
+      if (stepType === 'user_input') extraClass = 'user-input';
+      else if (stepType.includes('tool') || l.tool_calls) extraClass = 'tool-call';
+      else if (stepType === 'warning') extraClass = 'warning';
+      else if (stepType === 'error') extraClass = 'error';
+
+      stepDiv.className = `proc-output-step ${extraClass}`;
+
+      const headerDiv = document.createElement('div');
+      headerDiv.className = 'proc-step-header';
+      headerDiv.innerHTML = `
+        <span>${this.escapeHtml(l.label || l.type || 'STEP')}</span>
+        <span>${l.timestamp ? new Date(l.timestamp).toLocaleTimeString() : ''}</span>
+      `;
+
+      const contentDiv = document.createElement('div');
+      contentDiv.className = 'proc-step-content';
+
+      if (l.content) {
+        contentDiv.textContent = l.content;
+      } else if (l.message) {
+        contentDiv.textContent = l.message;
+      } else if (l.tool_calls && l.tool_calls.length > 0) {
+        const tcText = l.tool_calls.map(tc => `${tc.name}(${JSON.stringify(tc.args || {})})`).join('\n');
+        contentDiv.textContent = tcText;
+      } else if (l.thinking) {
+        contentDiv.textContent = `[Thinking]: ${l.thinking}`;
+      }
+
+      stepDiv.appendChild(headerDiv);
+      stepDiv.appendChild(contentDiv);
+      this.dom.procOutputTerminal.appendChild(stepDiv);
+    });
+
+    this.dom.procOutputTerminal.scrollTop = this.dom.procOutputTerminal.scrollHeight;
+  }
+
+  async stopProcess(pid, force = false) {
+    try {
+      const res = await fetch(`/api/processes/${pid}/stop`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ force: force }),
+      });
+      const data = await res.json();
+      this.appendCliLog({
+        level: 'warn',
+        message: `[PROCESS ${pid}] > ${data.message || 'Stop command issued'}`,
+        timestamp: Date.now() / 1000
+      });
+      await this.fetchProcesses();
+    } catch (err) {
+      console.error('Failed to stop process:', err);
     }
   }
 }

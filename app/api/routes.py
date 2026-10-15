@@ -13,8 +13,10 @@ from app.config import settings, save_settings
 from app.engine import engine
 from app.conversations import conv_manager
 from app.channels.manager import channel_manager
+from app.channels.web import web_channel
 from app.channels.discord import discord_channel
 from app.channels.webhook import webhook_channel
+from app.processes import process_manager
 
 router = APIRouter()
 
@@ -43,6 +45,16 @@ class WebhookTriggerRequest(BaseModel):
     conversation_id: Optional[str] = Field(None, description="Optional conversation ID")
     callback_url: Optional[str] = Field(None, description="URL to POST result to when completed")
     model: Optional[str] = Field(None, description="Optional model ID")
+
+
+class BtwRequest(BaseModel):
+    conversation_id: str = Field(..., description="Target conversation ID")
+    message: str = Field(..., description="Steering message or hint for the model")
+    interrupt: bool = Field(default=False, description="Whether to interrupt current step to steer immediately")
+
+
+class StopProcessRequest(BaseModel):
+    force: bool = Field(default=False, description="Send SIGKILL instead of SIGINT")
 
 
 # Conversations
@@ -111,6 +123,42 @@ async def send_chat(req: ChatRequest):
 async def abort_conversation(conversation_id: str):
     aborted = await engine.abort(conversation_id)
     return {"status": "ok" if aborted else "not_running"}
+
+
+# Process Management & Attachment
+@router.get("/processes")
+async def list_processes():
+    return process_manager.list_processes()
+
+
+@router.get("/processes/{pid}/output")
+async def get_process_output(pid: int, limit: int = 150):
+    return process_manager.get_process_output(pid=pid, limit=limit)
+
+
+@router.post("/processes/{pid}/stop")
+async def stop_process(pid: int, req: Optional[StopProcessRequest] = None):
+    force = req.force if req else False
+    res = process_manager.stop_process(pid=pid, force=force)
+    return res
+
+
+@router.post("/processes/btw")
+async def inject_btw(req: BtwRequest):
+    res = process_manager.inject_steering(
+        conversation_id=req.conversation_id,
+        message=req.message,
+        interrupt=req.interrupt,
+    )
+    # Broadcast to web channel so connected UI clients see the steering event
+    await web_channel.broadcast(req.conversation_id, {
+        "event": "btw_injected",
+        "conversation_id": req.conversation_id,
+        "message": req.message,
+        "interrupted": res.get("interrupted", False),
+        "timestamp": time.time(),
+    })
+    return res
 
 
 # Channels & Integrations

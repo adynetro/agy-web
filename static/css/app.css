@@ -3151,3 +3151,491 @@ input:checked + .slider:before {
   }
 }
 
+/* ==========================================================================
+   PROCESS MANAGER & /BTW STEERING STYLES
+   ========================================================================== */
+
+/* Header Processes Button */
+.btn-header-processes {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  background: rgba(49, 134, 255, 0.08);
+  border: 1px solid rgba(49, 134, 255, 0.25);
+  border-radius: var(--radius-sm);
+  padding: 6px 12px;
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--text-primary);
+  cursor: pointer;
+  transition: all 0.2s cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+.btn-header-processes:hover {
+  background: rgba(49, 134, 255, 0.18);
+  border-color: rgba(49, 134, 255, 0.45);
+  box-shadow: 0 0 12px rgba(49, 134, 255, 0.2);
+}
+
+.processes-btn-dot {
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  background-color: var(--text-muted);
+  transition: all 0.3s ease;
+}
+
+.processes-btn-dot.active {
+  background-color: #00e676;
+  box-shadow: 0 0 8px #00e676;
+  animation: pulse-dot 2s infinite;
+}
+
+.processes-count-badge {
+  background: var(--bg-tertiary);
+  border: 1px solid var(--border-color);
+  font-size: 11px;
+  font-family: var(--font-mono);
+  font-weight: 700;
+  padding: 1px 6px;
+  border-radius: var(--radius-full);
+  color: var(--text-muted);
+}
+
+.processes-count-badge.has-active {
+  background: rgba(0, 230, 118, 0.15);
+  color: #00e676;
+  border-color: rgba(0, 230, 118, 0.4);
+}
+
+/* Live Banner /btw Button */
+.live-banner-actions {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-left: auto;
+}
+
+.btn-banner-btw {
+  background: linear-gradient(135deg, rgba(245, 158, 11, 0.2) 0%, rgba(217, 119, 6, 0.25) 100%);
+  border: 1px solid rgba(245, 158, 11, 0.45);
+  color: #fbbf24;
+  border-radius: var(--radius-sm);
+  padding: 4px 10px;
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.3px;
+  cursor: pointer;
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  transition: all 0.2s ease;
+  box-shadow: 0 0 10px rgba(245, 158, 11, 0.15);
+}
+
+.btn-banner-btw:hover {
+  background: linear-gradient(135deg, rgba(245, 158, 11, 0.35) 0%, rgba(217, 119, 6, 0.4) 100%);
+  border-color: #fbbf24;
+  color: #fff;
+  box-shadow: 0 0 14px rgba(245, 158, 11, 0.3);
+  transform: translateY(-1px);
+}
+
+/* Chat Input /btw Button */
+.btn-btw {
+  background: rgba(245, 158, 11, 0.12);
+  border: 1px solid rgba(245, 158, 11, 0.35);
+  color: #fbbf24;
+  border-radius: var(--radius-sm);
+  padding: 6px 12px;
+  font-size: 12px;
+  font-weight: 700;
+  cursor: pointer;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  transition: all 0.2s ease;
+}
+
+.btn-btw:hover {
+  background: rgba(245, 158, 11, 0.25);
+  border-color: #fbbf24;
+  color: #ffffff;
+  box-shadow: 0 0 12px rgba(245, 158, 11, 0.25);
+}
+
+/* Chat Message: /btw Steering Bubble */
+.message-row-btw {
+  display: flex;
+  justify-content: flex-end;
+  margin: 12px 0;
+  animation: slideInUp 0.25s cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+.btw-card {
+  max-width: 82%;
+  background: linear-gradient(135deg, rgba(30, 24, 15, 0.95) 0%, rgba(42, 33, 18, 0.9) 100%);
+  border: 1px solid rgba(245, 158, 11, 0.45);
+  border-radius: var(--radius-md);
+  padding: 12px 16px;
+  box-shadow: 0 4px 18px rgba(245, 158, 11, 0.12);
+}
+
+.btw-header {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 11px;
+  font-weight: 800;
+  letter-spacing: 0.6px;
+  text-transform: uppercase;
+  color: #fbbf24;
+  margin-bottom: 6px;
+}
+
+.btw-badge-tag {
+  background: rgba(245, 158, 11, 0.2);
+  padding: 2px 6px;
+  border-radius: var(--radius-full);
+  border: 1px solid rgba(245, 158, 11, 0.3);
+  font-size: 10px;
+}
+
+.btw-body {
+  font-size: 13.5px;
+  color: #fef3c7;
+  line-height: 1.5;
+  white-space: pre-wrap;
+  word-break: break-word;
+}
+
+.btw-glow {
+  color: #fbbf24;
+  text-shadow: 0 0 10px rgba(245, 158, 11, 0.5);
+}
+
+.btn-btw-submit {
+  background: linear-gradient(135deg, #d97706 0%, #b45309 100%) !important;
+  border-color: #f59e0b !important;
+  color: white !important;
+  font-weight: 700;
+}
+
+.btn-btw-submit:hover {
+  background: linear-gradient(135deg, #f59e0b 0%, #d97706 100%) !important;
+  box-shadow: 0 0 16px rgba(245, 158, 11, 0.4) !important;
+}
+
+/* Process Manager Modal Layout */
+.modal-processes-card {
+  width: 950px;
+  max-width: 95vw;
+}
+
+.processes-toolbar {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 14px 20px;
+  background: var(--bg-tertiary);
+  border-bottom: 1px solid var(--border-color);
+}
+
+.processes-stat-pills {
+  display: flex;
+  gap: 12px;
+}
+
+.process-stat-pill {
+  font-size: 12px;
+  color: var(--text-muted);
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.stat-num {
+  font-family: var(--font-mono);
+  font-weight: 700;
+  font-size: 13px;
+  color: var(--text-primary);
+}
+
+.stat-num.stat-active {
+  color: #00e676;
+}
+
+.auto-refresh-label {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 12px;
+  color: var(--text-muted);
+  cursor: pointer;
+}
+
+.processes-list {
+  padding: 20px;
+  max-height: 520px;
+  overflow-y: auto;
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+}
+
+.process-card {
+  background: var(--bg-card);
+  border: 1px solid var(--border-color);
+  border-radius: var(--radius-md);
+  padding: 16px 18px;
+  transition: all 0.2s ease;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.process-card:hover {
+  border-color: var(--border-hover);
+  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.25);
+}
+
+.process-card.managed {
+  border-left: 3px solid #3186ff;
+}
+
+.process-card.active-turn {
+  border-left: 3px solid #00e676;
+}
+
+.process-card-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.process-id-group {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.process-pid {
+  font-family: var(--font-mono);
+  font-size: 14px;
+  font-weight: 700;
+  color: var(--text-primary);
+}
+
+.process-badge {
+  font-size: 11px;
+  font-weight: 700;
+  padding: 2px 8px;
+  border-radius: var(--radius-full);
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+}
+
+.badge-running {
+  background: rgba(0, 230, 118, 0.12);
+  color: #00e676;
+  border: 1px solid rgba(0, 230, 118, 0.3);
+}
+
+.badge-managed {
+  background: rgba(49, 134, 255, 0.12);
+  color: #4e95ff;
+  border: 1px solid rgba(49, 134, 255, 0.3);
+}
+
+.badge-cli {
+  background: rgba(255, 255, 255, 0.08);
+  color: var(--text-muted);
+  border: 1px solid var(--border-color);
+}
+
+.process-meta-stats {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  font-size: 12px;
+  color: var(--text-muted);
+  font-family: var(--font-mono);
+}
+
+.process-prompt-preview {
+  background: var(--bg-tertiary);
+  border: 1px solid var(--border-light);
+  border-radius: var(--radius-sm);
+  padding: 8px 12px;
+  font-size: 12.5px;
+  color: var(--text-primary);
+  line-height: 1.4;
+  word-break: break-word;
+}
+
+.process-card-footer {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.process-tags-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 11px;
+  color: var(--text-muted);
+}
+
+.process-tag {
+  background: var(--bg-tertiary);
+  padding: 2px 8px;
+  border-radius: var(--radius-sm);
+  border: 1px solid var(--border-light);
+  font-family: var(--font-mono);
+}
+
+.process-actions {
+  display: flex;
+  gap: 8px;
+  align-items: center;
+}
+
+.btn-proc-action {
+  padding: 5px 12px;
+  font-size: 11.5px;
+  font-weight: 600;
+  border-radius: var(--radius-sm);
+  cursor: pointer;
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  transition: all 0.2s ease;
+}
+
+.btn-proc-attach {
+  background: rgba(49, 134, 255, 0.12);
+  border: 1px solid rgba(49, 134, 255, 0.35);
+  color: #4e95ff;
+}
+
+.btn-proc-attach:hover {
+  background: #3186ff;
+  color: white;
+}
+
+.btn-proc-output {
+  background: var(--bg-tertiary);
+  border: 1px solid var(--border-color);
+  color: var(--text-primary);
+}
+
+.btn-proc-output:hover {
+  background: var(--bg-hover);
+  border-color: var(--text-muted);
+}
+
+.btn-proc-btw {
+  background: rgba(245, 158, 11, 0.12);
+  border: 1px solid rgba(245, 158, 11, 0.35);
+  color: #fbbf24;
+}
+
+.btn-proc-btw:hover {
+  background: #f59e0b;
+  color: #000;
+  font-weight: 700;
+}
+
+.btn-proc-stop {
+  background: rgba(239, 68, 68, 0.12);
+  border: 1px solid rgba(239, 68, 68, 0.3);
+  color: #f87171;
+}
+
+.btn-proc-stop:hover {
+  background: #ef4444;
+  color: white;
+}
+
+/* Process Output Terminal Modal */
+.modal-proc-output-card {
+  width: 900px;
+  max-width: 95vw;
+}
+
+.proc-output-terminal {
+  background: #090a0d;
+  border: 1px solid var(--border-color);
+  border-radius: var(--radius-sm);
+  padding: 16px;
+  font-family: var(--font-mono);
+  font-size: 12px;
+  line-height: 1.6;
+  max-height: 480px;
+  overflow-y: auto;
+  color: #d1d5db;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.proc-output-step {
+  padding: 8px 12px;
+  border-radius: var(--radius-sm);
+  background: rgba(255, 255, 255, 0.03);
+  border-left: 3px solid #3186ff;
+}
+
+.proc-output-step.tool-call {
+  border-left-color: #a855f7;
+  background: rgba(168, 85, 247, 0.04);
+}
+
+.proc-output-step.user-input {
+  border-left-color: #00e676;
+}
+
+.proc-output-step.warning {
+  border-left-color: #f59e0b;
+  color: #fbbf24;
+}
+
+.proc-output-step.error {
+  border-left-color: #ef4444;
+  color: #f87171;
+}
+
+.proc-step-header {
+  display: flex;
+  justify-content: space-between;
+  font-size: 11px;
+  font-weight: 700;
+  color: var(--text-muted);
+  margin-bottom: 4px;
+}
+
+.proc-step-content {
+  white-space: pre-wrap;
+  word-break: break-word;
+}
+
+.processes-empty-state {
+  text-align: center;
+  padding: 50px 20px;
+  color: var(--text-muted);
+  font-size: 13.5px;
+}
+
+.processes-empty-state .empty-icon {
+  font-size: 36px;
+  margin-bottom: 12px;
+  display: block;
+}
+
+

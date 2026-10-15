@@ -55,6 +55,16 @@ class ConversationManager:
         except Exception as e:
             print(f"Error saving deleted conversation IDs: {e}")
 
+    def get_conversation_title(self, conversation_id: str) -> Optional[str]:
+        """Fetch title for a specific conversation."""
+        summary = self._get_db_summary(conversation_id)
+        if summary and summary.get("title"):
+            return summary["title"]
+        hist = self.get_conversation_history(conversation_id)
+        if hist and hist.get("title"):
+            return hist["title"]
+        return None
+
     def list_conversations(self, limit: int = 50) -> List[Dict[str, Any]]:
         """List past conversations with titles, timestamps, and step counts."""
         if not self.db_path.exists():

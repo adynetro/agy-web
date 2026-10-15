@@ -14,6 +14,7 @@ class AgentEngine:
     def __init__(self, agy_bin: Optional[str] = None):
         self.agy_bin = agy_bin or settings.agy_bin
         self._active_processes: Dict[str, asyncio.subprocess.Process] = {}
+        self._active_pids: Dict[int, str] = {}
         self._locks: Dict[str, asyncio.Lock] = {}
 
     def _get_lock(self, conversation_id: str) -> asyncio.Lock:
@@ -150,6 +151,8 @@ class AgentEngine:
                     )
                 )
                 self._active_processes[session_key] = proc
+                if proc.pid:
+                    self._active_pids[proc.pid] = session_key
                 current_conv_id = conversation_id
 
                 # Broadcast initial invocation log
@@ -425,6 +428,8 @@ class AgentEngine:
                 self._active_processes.pop(session_key, None)
                 if current_conv_id:
                     self._active_processes.pop(current_conv_id, None)
+                if proc and proc.pid:
+                    self._active_pids.pop(proc.pid, None)
 
     async def abort(self, conversation_id: str) -> bool:
         """Aborts an ongoing execution for a conversation."""

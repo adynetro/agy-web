@@ -6,6 +6,7 @@ from fastapi import APIRouter, WebSocket, WebSocketDisconnect
 from app.engine import engine
 from app.channels.web import web_channel
 from app.config import settings
+from app.processes import process_manager
 
 ws_router = APIRouter()
 
@@ -38,6 +39,35 @@ async def websocket_chat_endpoint(websocket: WebSocket, conversation_id: Optiona
                         "type": "aborted",
                         "conversation_id": current_conv_id,
                         "success": aborted
+                    }))
+                continue
+
+            if msg_type == "btw":
+                # Steering instruction injected by user
+                btw_msg = (data.get("message") or data.get("prompt") or "").strip()
+                target_conv_id = data.get("conversation_id") or current_conv_id
+                interrupt = bool(data.get("interrupt", False))
+
+                if target_conv_id and btw_msg:
+                    res = process_manager.inject_steering(
+                        conversation_id=target_conv_id,
+                        message=btw_msg,
+                        interrupt=interrupt,
+                    )
+                    # Broadcast to all clients for this conversation
+                    await web_channel.broadcast(target_conv_id, {
+                        "event": "btw_injected",
+                        "conversation_id": target_conv_id,
+                        "message": btw_msg,
+                        "interrupted": res.get("interrupted", False),
+                        "timestamp": res.get("timestamp", 0),
+                    })
+                    await websocket.send_text(json.dumps({
+                        "type": "btw_ack",
+                        "conversation_id": target_conv_id,
+                        "success": True,
+                        "message": btw_msg,
+                        "interrupted": res.get("interrupted", False),
                     }))
                 continue
 

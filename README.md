@@ -41,7 +41,20 @@ curl -fsSL https://raw.githubusercontent.com/adynetro/agy-web/main/install.sh | 
    - **Webhook Channel**: Programmatic HTTP trigger and callback interface.
    - Pluggable design: Add Telegram, Slack, Matrix, or custom webhooks in ~50 lines of Python.
 
-3. **Production Daemon & CLI Launcher**
+3. **Antigravity Process Manager & Attachment**
+   - Live discovery of all active `agy` CLI processes running across the host.
+   - Inspect memory RSS, uptime, CWD, flags, and arguments in real time.
+   - Stream live process telemetry, logs, and transcript steps.
+   - 1-click session attachment (switch active chat directly into the running CLI session).
+   - Graceful termination (`SIGINT`) or force kill (`SIGKILL`) directly from the UI.
+
+4. **Real-Time `/btw` Model Steering**
+   - Inject course corrections, hints, or advice mid-turn while the agent is executing.
+   - Seamlessly steer by typing `/btw <hint>` into the chat bar while the model is thinking.
+   - Dedicated "⚡ Steer (/btw)" button on live banner, chat toolbar, and process manager.
+   - Optional tool interruption (`SIGINT`) to unstick frozen commands while immediately applying guidance.
+
+5. **Production Daemon & CLI Launcher**
    - Native `systemd` service (`agy-webui.service`) that auto-starts on boot.
    - Global command-line launcher: `agy-webui [--port 8000] [--host 0.0.0.0]`.
    - Complete Docker & `docker-compose` support for containerized environments.
