@@ -2030,6 +2030,7 @@ class AgyApp {
       const color = b.brand_accent_color;
       const root = document.documentElement;
       root.style.setProperty('--accent-primary', color);
+      root.style.setProperty('--accent-cyan', color);
       root.style.setProperty('--google-blue', color);
       root.style.setProperty('--border-glow', this.hexToRgba(color, 0.28));
       root.style.setProperty('--accent-light', this.hexToRgba(color, 0.12));
