@@ -206,19 +206,25 @@ button, a, input, select, textarea, .suggestion-card, .conv-item, .design-tab-bt
 .brand-icon.antigravity-mark-wrapper {
   width: 38px;
   height: 38px;
-  background: radial-gradient(circle at center, rgba(49, 134, 255, 0.18) 0%, rgba(20, 22, 29, 0.7) 100%);
-  border: 1px solid rgba(49, 134, 255, 0.3);
+  background: transparent;
+  border: 1px solid var(--border-light);
   border-radius: var(--radius-md);
   display: flex;
   align-items: center;
   justify-content: center;
-  box-shadow: 0 0 16px rgba(49, 134, 255, 0.25);
-  transition: transform 0.25s cubic-bezier(0.16, 1, 0.3, 1), box-shadow 0.25s ease;
+  box-shadow: none !important;
+  transition: transform 0.25s cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+.brand-icon.antigravity-mark-wrapper.has-custom-logo {
+  background: transparent !important;
+  border: none !important;
+  box-shadow: none !important;
 }
 
 .brand:hover .brand-icon.antigravity-mark-wrapper {
   transform: translateY(-2px) scale(1.05);
-  box-shadow: 0 0 24px rgba(49, 134, 255, 0.45);
+  box-shadow: none !important;
 }
 
 .antigravity-brand-mark {
@@ -916,19 +922,7 @@ button, a, input, select, textarea, .suggestion-card, .conv-item, .design-tab-bt
 }
 
 .hero-glow-backdrop {
-  position: absolute;
-  inset: -14px;
-  background: radial-gradient(circle, rgba(49, 134, 255, 0.45) 0%, rgba(255, 228, 50, 0.2) 35%, rgba(252, 65, 61, 0.15) 55%, transparent 72%);
-  border-radius: 50%;
-  filter: blur(14px);
-  z-index: 1;
-  pointer-events: none;
-  animation: aura-pulse 6s ease-in-out infinite alternate;
-}
-
-@keyframes aura-pulse {
-  0% { opacity: 0.65; transform: scale(0.92); }
-  100% { opacity: 1; transform: scale(1.1); }
+  display: none !important;
 }
 
 .welcome-hero-mark {
@@ -937,7 +931,19 @@ button, a, input, select, textarea, .suggestion-card, .conv-item, .design-tab-bt
   width: 80px;
   height: 80px;
   animation: antigravity-float 5s ease-in-out infinite;
-  filter: drop-shadow(0 8px 20px rgba(49, 134, 255, 0.35));
+  filter: none !important;
+}
+
+.welcome-hero-custom-logo-img {
+  max-width: 140px;
+  max-height: 85px;
+  width: auto;
+  height: auto;
+  object-fit: contain;
+  display: block;
+  filter: none !important;
+  box-shadow: none !important;
+  animation: antigravity-float 5s ease-in-out infinite;
 }
 
 .welcome-brand-wordmark {
@@ -950,7 +956,7 @@ button, a, input, select, textarea, .suggestion-card, .conv-item, .design-tab-bt
   height: 28px;
   width: auto;
   opacity: 0.92;
-  filter: drop-shadow(0 2px 8px rgba(0, 0, 0, 0.3));
+  filter: none !important;
 }
 
 .welcome-title {
@@ -3860,17 +3866,21 @@ input:checked + .slider:before {
    ========================================================================== */
 
 .brand-custom-logo-img {
-  width: 26px;
-  height: 26px;
+  width: 28px;
+  height: 28px;
   object-fit: contain;
   display: block;
+  filter: none !important;
+  box-shadow: none !important;
 }
 
 .header-mini-custom-logo-img {
-  width: 20px;
-  height: 20px;
+  width: 22px;
+  height: 22px;
   object-fit: contain;
   display: block;
+  filter: none !important;
+  box-shadow: none !important;
 }
 
 .welcome-custom-brand-text {

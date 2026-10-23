@@ -1535,10 +1535,14 @@ ${this.escapeHtml(outputContent)}
     // Logos in Sidebar & Header
     const customLogoImg = document.getElementById('sidebar-brand-custom-logo');
     const svgMark = document.getElementById('brand-svg-mark');
+    const brandMarkWrapper = document.getElementById('brand-mark-wrapper');
     const headerMiniCustomLogo = document.getElementById('header-mini-custom-logo');
     const headerMiniSvg = document.getElementById('header-mini-svg-mark');
+    const welcomeHeroSvg = document.getElementById('welcome-svg-mark');
+    const welcomeHeroCustom = document.getElementById('welcome-hero-custom-logo');
 
     if (b.brand_logo_url) {
+      if (brandMarkWrapper) brandMarkWrapper.classList.add('has-custom-logo');
       if (customLogoImg) {
         customLogoImg.src = b.brand_logo_url;
         customLogoImg.style.display = 'block';
@@ -1549,11 +1553,19 @@ ${this.escapeHtml(outputContent)}
         headerMiniCustomLogo.style.display = 'block';
       }
       if (headerMiniSvg) headerMiniSvg.style.display = 'none';
+      if (welcomeHeroCustom) {
+        welcomeHeroCustom.src = b.brand_logo_url;
+        welcomeHeroCustom.style.display = 'block';
+      }
+      if (welcomeHeroSvg) welcomeHeroSvg.style.display = 'none';
     } else {
+      if (brandMarkWrapper) brandMarkWrapper.classList.remove('has-custom-logo');
       if (customLogoImg) customLogoImg.style.display = 'none';
       if (svgMark) svgMark.style.display = 'block';
       if (headerMiniCustomLogo) headerMiniCustomLogo.style.display = 'none';
       if (headerMiniSvg) headerMiniSvg.style.display = 'block';
+      if (welcomeHeroCustom) welcomeHeroCustom.style.display = 'none';
+      if (welcomeHeroSvg) welcomeHeroSvg.style.display = 'block';
     }
 
     // Welcome Screen Brand Header
@@ -1662,9 +1674,9 @@ ${this.escapeHtml(outputContent)}
     if (elTagline) elTagline.textContent = tagline;
 
     if (iconBox) {
-      iconBox.style.background = this.hexToRgba(color, 0.15);
+      iconBox.style.background = this.hexToRgba(color, 0.12);
       iconBox.style.borderColor = this.hexToRgba(color, 0.35);
-      iconBox.style.boxShadow = `0 0 12px ${this.hexToRgba(color, 0.25)}`;
+      iconBox.style.boxShadow = 'none';
     }
 
     if (logoUrl) {

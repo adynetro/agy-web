@@ -31,6 +31,7 @@ ENV/
 config/settings.json
 config/discord_conv_map.json
 !config/settings.example.json
+static/assets/custom-logo*
 .env
 
 # Backups & Editor artifacts
