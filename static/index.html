@@ -3,17 +3,17 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
-  <meta name="theme-color" content="#0d0e12" id="theme-color-meta">
+  <meta name="theme-color" content="#0d1117" id="theme-color-meta">
   <meta name="mobile-web-app-capable" content="yes">
   <meta name="apple-mobile-web-app-capable" content="yes">
   <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
-  <title id="page-title">Google Antigravity (agy)</title>
+  <title id="page-title">Antigravity Harness Console</title>
   <link rel="icon" type="image/svg+xml" href="/static/assets/favicon.svg" id="app-favicon">
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-  <link href="https://fonts.googleapis.com/css2?family=Google+Sans+Flex:opsz,wght@8..144,100..900&family=Google+Sans+Mono:ital,wght@0,400..700;1,400..700&family=JetBrains+Mono:wght@400;500;600&family=Material+Symbols+Outlined:opsz,wght,FILL,GRAD@20..48,100..700,0..1,-50..200&display=swap" rel="stylesheet">
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=JetBrains+Mono:ital,wght@0,400;0,500;0,600;0,700;1,400&family=Material+Symbols+Outlined:opsz,wght,FILL,GRAD@20..48,100..700,0..1,-50..200&display=swap" rel="stylesheet">
   <link rel="stylesheet" href="/static/vendor/github-dark.min.css">
-  <link rel="stylesheet" href="/static/css/app.css?v=2.8">
+  <link rel="stylesheet" href="/static/css/app.css?v=3.1">
 </head>
 <body>
   <div id="app">
@@ -32,12 +32,12 @@
             <img id="sidebar-brand-custom-logo" class="brand-custom-logo-img" style="display: none;" alt="Brand Logo" />
           </div>
           <div class="brand-text-container">
-            <span class="brand-google-prefix" id="brand-prefix-text">Google</span>
-            <span class="brand-text" id="brand-name-text">Antigravity</span>
+            <span class="brand-google-prefix" id="brand-prefix-text">Antigravity</span>
+            <span class="brand-text" id="brand-name-text">Harness</span>
           </div>
         </div>
         <div class="sidebar-header-right">
-          <span class="brand-badge" id="brand-badge-pill" title="Antigravity Agent Runtime">AGY 2.0</span>
+          <span class="brand-badge live-badge" id="brand-badge-pill" title="Antigravity Agent Runtime"><span class="badge-pulse-dot"></span>ACTIVE</span>
           <button id="btn-sidebar-close" class="btn-sidebar-close" title="Close Sidebar" aria-label="Close sidebar">✕</button>
         </div>
       </div>
@@ -49,137 +49,93 @@
         </button>
       </div>
 
-      <div class="sidebar-section-title">Recent Sessions</div>
+      <div class="sidebar-section-title">
+        <span>Recent Sessions</span>
+        <span class="sidebar-session-count" id="sidebar-session-count"></span>
+      </div>
       <div id="conv-list" class="conversation-list">
         <!-- Dynamically rendered conversations -->
       </div>
 
-      <!-- Telemetry Widget: System & Quota Meters -->
-      <div class="usage-meters-widget">
-        <div class="usage-tabs-bar">
-          <button id="tab-btn-system" class="usage-tab-btn active" title="Show Host System Resources (CPU, RAM, Storage)">⚡ System</button>
-          <button id="tab-btn-quota" class="usage-tab-btn" title="Show Quota & Turn Tokens">📊 Quota</button>
-          <button id="tab-btn-both" class="usage-tab-btn" title="Show All Telemetry Panels">All</button>
-        </div>
-
-        <!-- System Resources Panel -->
-        <div id="panel-system" class="usage-panel active">
-          <div class="usage-widget-header">
-            <span class="usage-widget-title">System Resources</span>
-            <span id="system-status-dot" class="status-indicator online" title="Host Metrics Online"></span>
-          </div>
-
-          <!-- CPU Meter -->
-          <div class="meter-item">
-            <div class="meter-label-row">
-              <span class="meter-name">⚡ CPU</span>
-              <span id="meter-cpu-val" class="meter-val">0.0%</span>
-            </div>
-            <div class="meter-bar-track">
-              <div id="meter-cpu-bar" class="meter-bar-fill meter-bar-low" style="width: 0%;"></div>
-            </div>
-          </div>
-
-          <!-- RAM Meter -->
-          <div class="meter-item">
-            <div class="meter-label-row">
-              <span class="meter-name">🧠 RAM</span>
-              <span id="meter-ram-val" class="meter-val">0%</span>
-            </div>
-            <div class="meter-bar-track">
-              <div id="meter-ram-bar" class="meter-bar-fill meter-bar-low" style="width: 0%;"></div>
-            </div>
-          </div>
-
-          <!-- Storage Meter -->
-          <div class="meter-item">
-            <div class="meter-label-row">
-              <span class="meter-name">💾 Storage</span>
-              <span id="meter-disk-val" class="meter-val">0%</span>
-            </div>
-            <div class="meter-bar-track">
-              <div id="meter-disk-bar" class="meter-bar-fill meter-bar-low" style="width: 0%;"></div>
-            </div>
+      <!-- System Telemetry Deck (Bottom-left) -->
+      <div class="system-telemetry-deck">
+        <div class="telemetry-deck-header">
+          <span class="telemetry-deck-title">Telemetry Deck</span>
+          <div class="daemon-status-pill online" id="daemon-status-pill" title="Daemon connection active (10.0.0.192)">
+            <span class="daemon-pulse-dot"></span>
+            <span class="daemon-status-label">Daemon</span>
           </div>
         </div>
 
-        <!-- Quota Panel -->
-        <div id="panel-quota" class="usage-panel" style="display: none;">
-          <div class="usage-widget-header">
-            <span class="usage-widget-title">Quota</span>
-            <button id="btn-refresh-quota" class="btn-refresh-mini" title="Refresh Quota Limits">↻</button>
-          </div>
-
-          <!-- Gemini 5-Hour Quota -->
-          <div class="meter-item">
-            <div class="meter-label-row">
-              <span class="meter-name">📊 Quota (5h)</span>
-              <span id="meter-quota-val" class="meter-val">--%</span>
+        <!-- Compact Dual Micro-Progress Meters -->
+        <div class="micro-meters-container">
+          <!-- CPU Utilization Meter -->
+          <div class="micro-meter-card" title="Host CPU Utilization">
+            <div class="micro-meter-header">
+              <span class="micro-meter-name">CPU</span>
+              <span class="micro-meter-ascii" id="micro-cpu-ascii">[ ▰▰▰▱▱▱▱▱ ]</span>
+              <span class="micro-meter-val" id="meter-cpu-val">38%</span>
             </div>
-            <div class="meter-bar-track">
-              <div id="meter-quota-bar" class="meter-bar-fill quota-tokens" style="width: 100%;"></div>
-            </div>
-            <div id="meter-quota-reset" class="meter-subtext">Resets: --</div>
-          </div>
-
-          <!-- Gemini Weekly Quota -->
-          <div class="meter-item">
-            <div class="meter-label-row">
-              <span class="meter-name">📅 Weekly Quota</span>
-              <span id="meter-weekly-quota-val" class="meter-val">--%</span>
-            </div>
-            <div class="meter-bar-track">
-              <div id="meter-weekly-quota-bar" class="meter-bar-fill quota-weekly" style="width: 100%;"></div>
+            <div class="micro-bar-track">
+              <div id="meter-cpu-bar" class="micro-bar-fill bar-cpu" style="width: 38%;"></div>
             </div>
           </div>
 
-          <!-- Turn Tokens -->
-          <div class="token-meters-group">
-            <div class="meter-item">
-              <div class="meter-label-row">
-                <span class="meter-name">Prompt Tokens</span>
-                <span id="meter-input-val" class="meter-val">0</span>
-              </div>
-              <div class="meter-bar-track">
-                <div id="meter-input-bar" class="meter-bar-fill input-tokens" style="width: 0%;"></div>
-              </div>
+          <!-- RAM Allocation Gauge -->
+          <div class="micro-meter-card" title="Host Memory Allocation">
+            <div class="micro-meter-header">
+              <span class="micro-meter-name">RAM</span>
+              <span class="micro-meter-ascii" id="micro-ram-ascii">[ ▰▰▰▰▰▰▱▱ ]</span>
+              <span class="micro-meter-val" id="meter-ram-val">12.4 / 16 GB</span>
             </div>
-
-            <div class="meter-item">
-              <div class="meter-label-row">
-                <span class="meter-name">Output Tokens</span>
-                <span id="meter-output-val" class="meter-val">0</span>
-              </div>
-              <div class="meter-bar-track">
-                <div id="meter-output-bar" class="meter-bar-fill output-tokens" style="width: 0%;"></div>
-              </div>
-            </div>
-
-            <div class="meter-item">
-              <div class="meter-label-row">
-                <span class="meter-name">Thinking Tokens</span>
-                <span id="meter-thinking-val" class="meter-val">0</span>
-              </div>
-              <div class="meter-bar-track">
-                <div id="meter-thinking-bar" class="meter-bar-fill thinking-tokens" style="width: 0%;"></div>
-              </div>
-            </div>
-
-            <div class="meter-item">
-              <div class="meter-label-row">
-                <span class="meter-name">Cache Read</span>
-                <span id="meter-cache-val" class="meter-val">0</span>
-              </div>
-              <div class="meter-bar-track">
-                <div id="meter-cache-bar" class="meter-bar-fill cache-tokens" style="width: 0%;"></div>
-              </div>
+            <div class="micro-bar-track">
+              <div id="meter-ram-bar" class="micro-bar-fill bar-ram" style="width: 65%;"></div>
             </div>
           </div>
 
-          <!-- Total Tokens Summary -->
-          <div class="telemetry-total-row">
-            <span class="total-label">Turn Tokens:</span>
-            <span id="telemetry-total-val" class="total-val">0</span>
+          <!-- Disk Metric (Compact) -->
+          <div class="micro-meter-card micro-meter-compact" title="Storage Mount">
+            <div class="micro-meter-header">
+              <span class="micro-meter-name">DISK</span>
+              <span class="micro-meter-val" id="meter-disk-val">--</span>
+            </div>
+            <div class="micro-bar-track">
+              <div id="meter-disk-bar" class="micro-bar-fill bar-disk" style="width: 0%;"></div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Quota & Tokens Secondary Peek -->
+        <div class="telemetry-quota-row">
+          <button id="btn-toggle-quota" class="btn-quota-toggle" title="View Quota & Turn Tokens">
+            <span class="quota-toggle-label">📊 Quota (5h):</span>
+            <span id="meter-quota-val" class="quota-val-pill">--%</span>
+          </button>
+          <span id="telemetry-total-val" class="token-val-pill" title="Tokens used in turn">0 tok</span>
+        </div>
+
+        <!-- Collapsible Quota Dropdown Panel -->
+        <div id="panel-quota" class="quota-detail-panel" style="display: none;">
+          <div class="quota-meter-line">
+            <span class="quota-line-name">5h Quota</span>
+            <div class="micro-bar-track inline-track">
+              <div id="meter-quota-bar" class="micro-bar-fill quota-tokens" style="width: 100%;"></div>
+            </div>
+          </div>
+          <div class="quota-meter-line">
+            <span class="quota-line-name">Weekly</span>
+            <div class="micro-bar-track inline-track">
+              <div id="meter-weekly-quota-bar" class="micro-bar-fill quota-weekly" style="width: 100%;"></div>
+            </div>
+          </div>
+          <div id="meter-quota-reset" class="quota-reset-text">Resets: --</div>
+          <!-- Hidden fallback elements for JS references -->
+          <div style="display: none;">
+            <span id="meter-weekly-quota-val"></span>
+            <span id="meter-input-val"></span><div id="meter-input-bar"></div>
+            <span id="meter-output-val"></span><div id="meter-output-bar"></div>
+            <span id="meter-thinking-val"></span><div id="meter-thinking-bar"></div>
+            <span id="meter-cache-val"></span><div id="meter-cache-bar"></div>
           </div>
         </div>
       </div>
@@ -222,24 +178,35 @@
 </svg>
             <img id="header-mini-custom-logo" class="header-mini-custom-logo-img" style="display: none;" alt="Brand Logo" />
           </div>
-          <h2 id="conv-title" class="conversation-heading">New Conversation</h2>
+          <div class="header-breadcrumbs">
+            <span class="breadcrumb-item breadcrumb-root">Harness</span>
+            <span class="breadcrumb-separator">/</span>
+            <span class="breadcrumb-item breadcrumb-active" id="conv-title">New Conversation</span>
+          </div>
         </div>
       </div>
 
         <div class="chat-controls">
           <div class="chat-selects-group">
-            <select id="model-select" class="select-control" title="Select Model">
+            <select id="model-select" class="select-control pill-select" title="Select Model">
               <option value="gemini-3.8-flash-high">Gemini 3.8 Flash (High)</option>
+              <option value="gemini-2.5-flash">Gemini 2.5 Flash</option>
+              <option value="gemini-2.5-pro">Gemini 2.5 Pro</option>
             </select>
 
-            <select id="effort-select" class="select-control" title="Reasoning Effort">
+            <select id="effort-select" class="select-control pill-select" title="Reasoning Effort">
               <option value="low">Effort: Low</option>
               <option value="medium">Effort: Medium</option>
               <option value="high" selected>Effort: High</option>
               <option value="max">Effort: Max</option>
             </select>
 
-            <select id="mode-select" class="select-control" title="Execution Mode">
+            <button id="btn-toggle-autoapprove" class="btn-header-pill pill-autoapprove active" title="Toggle Auto-Approve Permissions">
+              <span class="pill-dot"></span>
+              <span class="pill-text">Auto-Approve: ON</span>
+            </button>
+
+            <select id="mode-select" class="select-control pill-select" title="Execution Mode" style="display: none;">
               <option value="auto" selected>Mode: Auto</option>
               <option value="plan">Mode: Plan</option>
               <option value="accept-edits">Mode: Accept Edits</option>
@@ -334,32 +301,63 @@
         </div>
       </div>
 
-      <!-- Chat Input Area -->
-      <div class="chat-input-wrapper">
-        <div class="chat-input-container">
-          <textarea
-            id="prompt-input"
-            class="chat-textarea"
-            rows="1"
-            placeholder="Message Antigravity... (/ for slash commands, Shift+Enter for newline)"
-          ></textarea>
+      <!-- Floating Command Deck / Input Bar -->
+      <div class="command-deck-dock-wrapper">
+        <div class="command-deck-dock">
+          <!-- Command Quick Chips Row -->
+          <div class="command-deck-chips">
+            <button type="button" class="deck-chip" data-cmd="/diff" title="Inspect recent uncommitted changes">
+              <span class="chip-icon">📄</span> <span class="chip-label">/diff</span>
+            </button>
+            <button type="button" class="deck-chip" data-cmd="/undo" title="Revert last file modification">
+              <span class="chip-icon">↩</span> <span class="chip-label">/undo</span>
+            </button>
+            <button type="button" class="deck-chip chip-stop" id="deck-chip-stop" data-cmd="/stop" title="Stop current execution">
+              <span class="chip-icon">■</span> <span class="chip-label">/stop</span>
+            </button>
+            <button type="button" class="deck-chip chip-autoapprove active" id="deck-chip-autoapprove" title="Toggle auto-approval of tool permissions">
+              <span class="chip-dot"></span> <span class="chip-label">Auto-Approve</span>
+            </button>
+            <button type="button" class="deck-chip chip-btw" id="deck-chip-btw" title="Steer turn with real-time /btw hint">
+              <span class="chip-icon">⚡</span> <span class="chip-label">/btw</span>
+            </button>
+          </div>
 
-          <div class="chat-input-toolbar">
-            <div class="cwd-badge" title="Workspace Working Directory">
-              <span>📂 CWD:</span>
-              <input id="cwd-input" type="text" class="cwd-input" placeholder="Working directory..." />
-            </div>
+          <!-- Command Input Row -->
+          <div class="command-deck-input-row">
+            <textarea
+              id="prompt-input"
+              class="command-deck-textarea"
+              rows="1"
+              placeholder="Ask Antigravity to build, debug, or explore... (Enter to run, Shift+Enter for newline)"
+            ></textarea>
 
-            <div class="input-actions">
+            <div class="command-deck-actions">
               <button id="btn-btw" class="btn-btw" style="display: none;" title="Steer the running model (/btw)">
                 <span>⚡</span> <span>/btw</span>
               </button>
               <button id="btn-abort" class="btn-abort" style="display: none;" title="Abort Turn">
-                <span>■</span> Stop
+                <span>■</span> <span>Abort</span>
               </button>
-              <button id="btn-send" class="btn-send" title="Send Prompt">
+              <button id="btn-send" class="btn-send dynamic-action-btn" title="Send Instruction (Enter)">
+                <span class="action-spinner" style="display: none;"></span>
+                <span class="action-text">Send</span>
                 <span class="send-icon">↑</span>
               </button>
+            </div>
+          </div>
+
+          <!-- Deck Footer: CWD & Precision Keyboard Shortcut Cues -->
+          <div class="command-deck-footer">
+            <div class="cwd-badge" title="Workspace Working Directory">
+              <span class="cwd-icon">📂</span>
+              <span class="cwd-label">CWD:</span>
+              <input id="cwd-input" type="text" class="cwd-input" placeholder="Working directory..." />
+            </div>
+            <div class="command-deck-cues">
+              <span class="kbd-cue"><kbd>Enter</kbd> to run</span>
+              <span class="kbd-divider">•</span>
+              <span class="kbd-cue"><kbd>Shift+Enter</kbd> for newline</span>
             </div>
           </div>
         </div>
@@ -778,6 +776,6 @@
 
   <script src="/static/vendor/marked.min.js"></script>
   <script src="/static/vendor/highlight.min.js"></script>
-  <script src="/static/js/app.js?v=2.8"></script>
+  <script src="/static/js/app.js?v=3.1"></script>
 </body>
 </html>

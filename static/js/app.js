@@ -30,6 +30,7 @@ class AgyApp {
       totalTokens: 0,
       lastDuration: 0,
     };
+    this.autoApprove = true;
     
     // DOM Elements
     this.dom = {
@@ -70,6 +71,14 @@ class AgyApp {
       meterRamBar: document.getElementById('meter-ram-bar'),
       meterDiskVal: document.getElementById('meter-disk-val'),
       meterDiskBar: document.getElementById('meter-disk-bar'),
+      microCpuAscii: document.getElementById('micro-cpu-ascii'),
+      microRamAscii: document.getElementById('micro-ram-ascii'),
+      btnToggleQuota: document.getElementById('btn-toggle-quota'),
+      btnToggleAutoApprove: document.getElementById('btn-toggle-autoapprove'),
+      deckChipAutoApprove: document.getElementById('deck-chip-autoapprove'),
+      deckChipStop: document.getElementById('deck-chip-stop'),
+      deckChipBtw: document.getElementById('deck-chip-btw'),
+      sidebarSessionCount: document.getElementById('sidebar-session-count'),
       headerCpuVal: document.getElementById('header-cpu-val'),
       headerRamVal: document.getElementById('header-ram-val'),
       headerDiskVal: document.getElementById('header-disk-val'),
@@ -302,6 +311,46 @@ class AgyApp {
     this.dom.btnSend.addEventListener('click', () => this.sendMessage());
     this.dom.btnAbort.addEventListener('click', () => this.abortTurn());
     this.dom.btnNewChat.addEventListener('click', () => this.startNewChat());
+
+    // Command Deck Quick Action Chips
+    document.querySelectorAll('.deck-chip').forEach(chip => {
+      chip.addEventListener('click', () => {
+        const cmd = chip.getAttribute('data-cmd');
+        if (cmd === '/diff') {
+          this.dom.promptInput.value = 'Show git diff and uncommitted changes across the workspace';
+          this.sendMessage();
+        } else if (cmd === '/undo') {
+          this.dom.promptInput.value = 'Revert the last file edits made in this workspace';
+          this.sendMessage();
+        } else if (cmd === '/stop') {
+          this.abortTurn();
+        }
+      });
+    });
+
+    if (this.dom.deckChipAutoApprove) {
+      this.dom.deckChipAutoApprove.addEventListener('click', () => this.toggleAutoApprove());
+    }
+    if (this.dom.btnToggleAutoApprove) {
+      this.dom.btnToggleAutoApprove.addEventListener('click', () => this.toggleAutoApprove());
+    }
+    if (this.dom.deckChipBtw) {
+      this.dom.deckChipBtw.addEventListener('click', () => this.openQuickBtwModal());
+    }
+    if (this.dom.btnToggleQuota) {
+      this.dom.btnToggleQuota.addEventListener('click', () => {
+        const p = this.dom.panelQuota;
+        if (p) p.style.display = p.style.display === 'none' ? 'flex' : 'none';
+      });
+    }
+
+    // Auto-expanding textarea
+    if (this.dom.promptInput) {
+      this.dom.promptInput.addEventListener('input', () => {
+        this.dom.promptInput.style.height = 'auto';
+        this.dom.promptInput.style.height = Math.min(180, Math.max(24, this.dom.promptInput.scrollHeight)) + 'px';
+      });
+    }
 
     // Process Manager Button
     if (this.dom.btnHeaderProcesses) {
@@ -614,6 +663,10 @@ class AgyApp {
           this.selectedMode = s.default_mode;
           if (this.dom.modeSelect) this.dom.modeSelect.value = s.default_mode;
         }
+        if (s.dangerously_skip_permissions !== undefined) {
+          this.autoApprove = !!s.dangerously_skip_permissions;
+          this.updateAutoApproveUI();
+        }
       }
     } catch (e) {
       console.warn('Failed to load initial settings:', e);
@@ -889,9 +942,11 @@ class AgyApp {
       if (data.state === 'ACTIVE') {
         const actionText = data.summary ? `⚡ ${data.tool_name} › ${data.summary}` : `⚡ Running ${data.tool_name}...`;
         this.updateLiveBannerAction(actionText);
+        this.updateDynamicActionButton('executing', data.tool_name);
       } else if (data.state === 'DONE') {
         const dur = data.duration_seconds ? ` in ${data.duration_seconds.toFixed(2)}s` : '';
         this.updateLiveBannerAction(`✔ Completed ${data.tool_name}${dur}`);
+        this.updateDynamicActionButton('thinking');
       }
 
       if (this.currentAssistantMessage) {
@@ -997,10 +1052,87 @@ class AgyApp {
 
   // --- Rendering UI ---
 
+  formatRelativeTime(dateInput) {
+    if (!dateInput) return '';
+    const d = new Date(dateInput);
+    if (isNaN(d.getTime())) return '';
+    const diffSec = Math.floor((Date.now() - d.getTime()) / 1000);
+    if (diffSec < 60) return 'just now';
+    if (diffSec < 3600) return `${Math.floor(diffSec / 60)}m ago`;
+    if (diffSec < 86400) return `${Math.floor(diffSec / 3600)}h ago`;
+    if (diffSec < 172800) return 'yesterday';
+    return d.toLocaleDateString(undefined, { month: 'short', day: 'numeric' });
+  }
+
+  formatAsciiMeter(percent, slots = 8) {
+    const clamped = Math.max(0, Math.min(100, percent || 0));
+    const filled = Math.round((clamped / 100) * slots);
+    const empty = slots - filled;
+    return `[ ${'▰'.repeat(filled)}${'▱'.repeat(empty)} ]`;
+  }
+
+  async toggleAutoApprove() {
+    this.autoApprove = !this.autoApprove;
+    this.updateAutoApproveUI();
+    try {
+      await fetch('/api/settings', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ dangerously_skip_permissions: this.autoApprove })
+      });
+    } catch (e) {
+      console.warn('Failed to persist auto-approve setting:', e);
+    }
+  }
+
+  updateAutoApproveUI() {
+    const chip = document.getElementById('deck-chip-autoapprove');
+    const pill = document.getElementById('btn-toggle-autoapprove');
+    if (chip) {
+      chip.classList.toggle('active', this.autoApprove);
+      const label = chip.querySelector('.chip-label');
+      if (label) label.textContent = this.autoApprove ? 'Auto-Approve' : 'Manual Approval';
+    }
+    if (pill) {
+      pill.classList.toggle('active', this.autoApprove);
+      const text = pill.querySelector('.pill-text');
+      if (text) text.textContent = `Auto-Approve: ${this.autoApprove ? 'ON' : 'OFF'}`;
+    }
+  }
+
+  updateDynamicActionButton(state, toolName = '') {
+    if (!this.dom.btnSend) return;
+    const label = this.dom.btnSend.querySelector('.action-text');
+    const spinner = this.dom.btnSend.querySelector('.action-spinner');
+    const icon = this.dom.btnSend.querySelector('.send-icon');
+
+    this.dom.btnSend.className = 'btn-send dynamic-action-btn';
+
+    if (state === 'thinking') {
+      this.dom.btnSend.classList.add('btn-thinking');
+      if (label) label.textContent = 'Thinking...';
+      if (spinner) spinner.style.display = 'inline-block';
+      if (icon) icon.style.display = 'none';
+    } else if (state === 'executing') {
+      this.dom.btnSend.classList.add('btn-executing');
+      const cleanName = (toolName || 'tool').replace(/_/g, ' ');
+      if (label) label.textContent = `Executing ${cleanName}...`;
+      if (spinner) spinner.style.display = 'inline-block';
+      if (icon) icon.style.display = 'none';
+    } else {
+      if (label) label.textContent = 'Send';
+      if (spinner) spinner.style.display = 'none';
+      if (icon) { icon.style.display = 'inline'; icon.textContent = '↑'; }
+    }
+  }
+
   renderConversationList() {
     this.dom.convList.innerHTML = '';
+    const countBadge = document.getElementById('sidebar-session-count');
+    if (countBadge) countBadge.textContent = this.conversations.length;
+
     if (this.conversations.length === 0) {
-      this.dom.convList.innerHTML = '<div style="padding: 12px; font-size: 12px; color: var(--text-muted); text-align: center;">No conversations yet</div>';
+      this.dom.convList.innerHTML = '<div style="padding: 12px; font-size: 12px; color: var(--text-muted); text-align: center;">No active sessions</div>';
       return;
     }
 
@@ -1014,20 +1146,34 @@ class AgyApp {
 
       const title = document.createElement('div');
       title.className = 'conv-item-title';
-      title.textContent = conv.title || 'Conversation';
+      title.textContent = conv.title || 'Conversation Session';
 
-      const meta = document.createElement('div');
-      meta.className = 'conv-item-meta';
-      const timeStr = conv.updated_at ? new Date(conv.updated_at).toLocaleDateString(undefined, { month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' }) : '';
-      meta.textContent = `${conv.step_count || 0} turns • ${timeStr}`;
+      const tagsRow = document.createElement('div');
+      tagsRow.className = 'session-tags-row';
+
+      const branchTag = document.createElement('span');
+      branchTag.className = 'session-branch-tag';
+      branchTag.innerHTML = `<span>⑂</span> <span>${this.escapeHtml(conv.branch || 'main')}</span>`;
+
+      const relTime = document.createElement('span');
+      relTime.className = 'session-relative-time';
+      relTime.textContent = this.formatRelativeTime(conv.updated_at);
+
+      const turnsTag = document.createElement('span');
+      turnsTag.className = 'session-relative-time';
+      turnsTag.textContent = `• ${conv.step_count || 0} turns`;
+
+      tagsRow.appendChild(branchTag);
+      tagsRow.appendChild(relTime);
+      tagsRow.appendChild(turnsTag);
 
       content.appendChild(title);
-      content.appendChild(meta);
+      content.appendChild(tagsRow);
 
       const delBtn = document.createElement('button');
       delBtn.className = 'conv-item-delete';
       delBtn.title = 'Delete Conversation';
-      delBtn.innerHTML = '🗑️';
+      delBtn.innerHTML = '✕';
       delBtn.onclick = (e) => this.deleteConversation(conv.id, e);
 
       item.appendChild(content);
@@ -1039,12 +1185,12 @@ class AgyApp {
   renderChatMessages() {
     if (this.messages.length === 0) {
       this.dom.welcomeView.style.display = 'flex';
-      this.dom.chatInner.querySelectorAll('.message-row').forEach(e => e.remove());
+      this.dom.chatInner.querySelectorAll('.message-row, .message-row-btw').forEach(e => e.remove());
       return;
     }
 
     this.dom.welcomeView.style.display = 'none';
-    this.dom.chatInner.querySelectorAll('.message-row').forEach(e => e.remove());
+    this.dom.chatInner.querySelectorAll('.message-row, .message-row-btw').forEach(e => e.remove());
 
     this.messages.forEach(msg => {
       const row = this.createMessageRowElement(msg);
@@ -1052,6 +1198,343 @@ class AgyApp {
     });
 
     this.scrollToBottom();
+  }
+
+  isReadTool(name) {
+    if (!name) return false;
+    const n = name.toLowerCase();
+    return n.includes('read_') || n.includes('view_file') || n.includes('list_dir') ||
+           n.includes('search_files') || n.includes('cat') || n.includes('grep') ||
+           n.includes('head') || n.includes('tail') || n.includes('file_search');
+  }
+
+  isWriteTool(name) {
+    if (!name) return false;
+    const n = name.toLowerCase();
+    return n.includes('write_') || n.includes('edit_') || n.includes('replace_') ||
+           n.includes('patch') || n.includes('sed_') || n.includes('save_file');
+  }
+
+  isCommandTool(name) {
+    if (!name) return false;
+    const n = name.toLowerCase();
+    return n.includes('run_command') || n.includes('exec') || n.includes('shell') || n.includes('terminal');
+  }
+
+  groupToolCalls(toolCalls) {
+    const groups = [];
+    let currentBatch = [];
+
+    const flushBatch = () => {
+      if (currentBatch.length === 1) {
+        groups.push({ type: 'single', tool: currentBatch[0] });
+      } else if (currentBatch.length > 1) {
+        groups.push({ type: 'batch_reads', tools: [...currentBatch] });
+      }
+      currentBatch = [];
+    };
+
+    toolCalls.forEach(tc => {
+      if (this.isReadTool(tc.name)) {
+        currentBatch.push(tc);
+      } else {
+        flushBatch();
+        groups.push({ type: 'single', tool: tc });
+      }
+    });
+    flushBatch();
+    return groups;
+  }
+
+  createReasoningBlockElement(thinking, duration, usage) {
+    const block = document.createElement('div');
+    block.className = 'reasoning-block';
+
+    const durText = duration ? ` • ${duration.toFixed(1)}s` : '';
+    const tokText = (usage && usage.thinking_tokens) ? ` (${usage.thinking_tokens.toLocaleString()} tokens)` : '';
+
+    const header = document.createElement('div');
+    header.className = 'reasoning-header';
+    header.innerHTML = `
+      <div class="reasoning-title-group">
+        <span class="reasoning-icon">💭</span>
+        <span>Reasoning Chain${durText}${tokText}</span>
+      </div>
+      <span class="reasoning-toggle-arrow">▼</span>
+    `;
+
+    const body = document.createElement('div');
+    body.className = 'reasoning-body';
+    body.style.display = 'none';
+    body.textContent = thinking;
+
+    header.onclick = () => {
+      const isClosed = body.style.display === 'none';
+      body.style.display = isClosed ? 'block' : 'none';
+      block.classList.toggle('open', isClosed);
+    };
+
+    block.appendChild(header);
+    block.appendChild(body);
+    return block;
+  }
+
+  createBatchReadsElement(tools) {
+    const card = document.createElement('div');
+    card.className = 'batch-reads-card';
+
+    let totalDur = 0;
+    tools.forEach(t => {
+      if (t.duration_seconds) totalDur += t.duration_seconds;
+    });
+    const durStr = totalDur > 0 ? ` • ${Math.round(totalDur * 1000)}ms` : '';
+
+    const header = document.createElement('div');
+    header.className = 'batch-reads-header';
+    header.innerHTML = `
+      <div class="batch-reads-title">
+        <span class="batch-arrow">▸</span>
+        <span>Analyzed ${tools.length} context files (click to expand)${durStr}</span>
+      </div>
+      <span class="batch-reads-badge">${tools.length} READS</span>
+    `;
+
+    const list = document.createElement('div');
+    list.className = 'batch-checklist';
+    list.style.display = 'none';
+
+    tools.forEach((t) => {
+      const row = document.createElement('div');
+      row.className = 'batch-check-row';
+
+      const path = (t.args && (t.args.Path || t.args.AbsolutePath || t.args.TargetFile)) || t.summary || 'context file';
+      const lines = (t.args && t.args.StartLine && t.args.EndLine) ? `#L${t.args.StartLine}-${t.args.EndLine}` : '';
+      const dur = t.duration_seconds ? `${Math.round(t.duration_seconds * 1000)}ms` : 'done';
+
+      row.innerHTML = `
+        <div class="batch-check-left">
+          <span class="batch-check-icon">✔</span>
+          <span class="batch-file-path" title="${this.escapeHtml(path)}">${this.escapeHtml(path)}</span>
+          ${lines ? `<span class="batch-line-range">${lines}</span>` : ''}
+        </div>
+        <div style="display: flex; align-items: center; gap: 8px;">
+          <span class="action-duration">${dur}</span>
+          <button class="batch-peek-btn" title="Peek content">Inspect</button>
+        </div>
+      `;
+
+      const peekBtn = row.querySelector('.batch-peek-btn');
+      const peekBox = document.createElement('div');
+      peekBox.className = 'batch-file-peek-content';
+      peekBox.style.display = 'none';
+      peekBox.textContent = t.output || '(File read completed with empty output)';
+
+      peekBtn.onclick = (e) => {
+        e.stopPropagation();
+        const open = peekBox.style.display !== 'none';
+        peekBox.style.display = open ? 'none' : 'block';
+        peekBtn.textContent = open ? 'Inspect' : 'Hide';
+      };
+
+      list.appendChild(row);
+      list.appendChild(peekBox);
+    });
+
+    header.onclick = () => {
+      const isOpen = list.style.display !== 'none';
+      list.style.display = isOpen ? 'none' : 'flex';
+      card.classList.toggle('open', !isOpen);
+    };
+
+    card.appendChild(header);
+    card.appendChild(list);
+    return card;
+  }
+
+  createDiffViewer(path, args, output) {
+    const container = document.createElement('div');
+    container.className = 'diff-view-container';
+
+    let target = (args && args.Target) || '';
+    let replacement = (args && args.Replacement) || '';
+    if (!target && args && args.Content) {
+      replacement = args.Content;
+    }
+
+    const targetLines = target ? target.split('\n') : [];
+    const repLines = replacement ? replacement.split('\n') : [];
+
+    const delCount = targetLines.length;
+    const addCount = repLines.length;
+
+    let tableHtml = '<div class="diff-table">';
+    tableHtml += `
+      <div class="diff-line line-chunk">
+        <span class="diff-marker">@@</span>
+        <span class="diff-content">@@ -1,${delCount || 1} +1,${addCount || 1} @@ ${this.escapeHtml(path)}</span>
+      </div>
+    `;
+
+    targetLines.forEach((line, i) => {
+      tableHtml += `
+        <div class="diff-line line-del">
+          <span class="diff-gutter">${i + 1}</span>
+          <span class="diff-marker">-</span>
+          <span class="diff-content">${this.escapeHtml(line)}</span>
+        </div>
+      `;
+    });
+
+    repLines.forEach((line, i) => {
+      tableHtml += `
+        <div class="diff-line line-add">
+          <span class="diff-gutter">${i + 1}</span>
+          <span class="diff-marker">+</span>
+          <span class="diff-content">${this.escapeHtml(line)}</span>
+        </div>
+      `;
+    });
+
+    tableHtml += '</div>';
+
+    container.innerHTML = `
+      <div class="diff-toolbar">
+        <span class="diff-path">${this.escapeHtml(path || 'file')}</span>
+        <div class="diff-stats">
+          ${addCount ? `<span class="diff-stat-add">+${addCount}</span>` : ''}
+          ${delCount ? `<span class="diff-stat-del">-${delCount}</span>` : ''}
+        </div>
+      </div>
+      ${tableHtml}
+    `;
+
+    return container;
+  }
+
+  createTerminalOutput(cmd, output, isDone, duration) {
+    const container = document.createElement('div');
+    container.className = 'terminal-card-output';
+
+    const isError = output && (output.includes('Command exited with code 1') || output.includes('exit status 1'));
+    const exitBadge = isDone ?
+      (isError ? '<span class="action-status-pill status-error">✕ exit 1</span>' : '<span class="action-status-pill status-success">✔ exit 0</span>') :
+      '<span class="action-status-pill status-running">⚡ running</span>';
+
+    container.innerHTML = `
+      <div class="terminal-titlebar">
+        <div style="display: flex; align-items: center; gap: 10px;">
+          <div class="terminal-dots">
+            <span class="terminal-dot dot-red"></span>
+            <span class="terminal-dot dot-yellow"></span>
+            <span class="terminal-dot dot-green"></span>
+          </div>
+          <span class="terminal-cmd-display">$ ${this.escapeHtml(cmd)}</span>
+        </div>
+        <div style="display: flex; align-items: center; gap: 8px;">
+          ${exitBadge}
+          <button class="batch-peek-btn btn-copy-terminal" title="Copy output">Copy</button>
+        </div>
+      </div>
+      <pre class="terminal-text-block"><code>${this.escapeHtml(output || '(executing command...)')}</code></pre>
+    `;
+
+    const copyBtn = container.querySelector('.btn-copy-terminal');
+    if (copyBtn) {
+      copyBtn.onclick = (e) => {
+        e.stopPropagation();
+        navigator.clipboard.writeText(output || cmd).then(() => {
+          copyBtn.textContent = 'Copied!';
+          setTimeout(() => copyBtn.textContent = 'Copy', 1500);
+        });
+      };
+    }
+
+    return container;
+  }
+
+  createActionCardElement(tc) {
+    const card = document.createElement('div');
+    const isDone = tc.state === 'DONE' || tc.output !== null;
+
+    let category = 'cat-read';
+    let iconSvg = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="8"></circle><line x1="21" y1="21" x2="16.65" y2="16.65"></line></svg>'; // FileSearch default
+
+    if (this.isWriteTool(tc.name)) {
+      category = 'cat-write';
+      iconSvg = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 20h9"></path><path d="M16.5 3.5a2.121 2.121 0 0 1 3 3L7 19l-4 1 1-4L16.5 3.5z"></path></svg>'; // FileDiff
+    } else if (this.isCommandTool(tc.name)) {
+      category = 'cat-cmd';
+      iconSvg = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="4 17 10 11 4 5"></polyline><line x1="12" y1="19" x2="20" y2="19"></line></svg>'; // Terminal
+    }
+
+    card.className = `action-card ${category}`;
+
+    const durMs = tc.duration_seconds ?
+      (tc.duration_seconds < 1 ? `${Math.round(tc.duration_seconds * 1000)}ms` : `${tc.duration_seconds.toFixed(2)}s`) :
+      (isDone ? 'done' : 'active');
+
+    // Status pill determination
+    let statusPill = '';
+    const outputStr = tc.output || '';
+    const isExitErr = outputStr.includes('Command exited with code 1') || outputStr.includes('exit status 1') || tc.state === 'ERROR';
+
+    if (this.isCommandTool(tc.name)) {
+      if (!isDone) {
+        statusPill = '<span class="action-status-pill status-running">⚡ running</span>';
+      } else if (isExitErr) {
+        statusPill = '<span class="action-status-pill status-error">✕ exit 1</span>';
+      } else {
+        statusPill = '<span class="action-status-pill status-success">✔ exit 0</span>';
+      }
+    } else {
+      if (!isDone) {
+        statusPill = '<span class="action-status-pill status-running">⚡ running</span>';
+      } else {
+        statusPill = '<span class="action-status-pill status-success">✔ done</span>';
+      }
+    }
+
+    const targetDesc = (tc.args && (tc.args.Path || tc.args.AbsolutePath || tc.args.CommandLine || tc.args.TargetFile)) || tc.summary || '';
+
+    const header = document.createElement('div');
+    header.className = 'action-header';
+    header.innerHTML = `
+      <div class="action-title-group">
+        <span class="action-icon">${iconSvg}</span>
+        <span class="action-name">${this.escapeHtml(tc.name)}</span>
+        ${targetDesc ? `<span class="action-target" title="${this.escapeHtml(targetDesc)}">${this.escapeHtml(targetDesc)}</span>` : ''}
+      </div>
+      <div class="action-meta-right">
+        <span class="action-duration">${durMs}</span>
+        ${statusPill}
+      </div>
+    `;
+
+    const body = document.createElement('div');
+    body.className = 'action-body';
+    body.style.display = isDone ? 'none' : 'block';
+
+    if (this.isWriteTool(tc.name)) {
+      body.appendChild(this.createDiffViewer(targetDesc, tc.args, tc.output));
+    } else if (this.isCommandTool(tc.name)) {
+      const cmd = (tc.args && tc.args.CommandLine) || targetDesc || 'run_command';
+      body.appendChild(this.createTerminalOutput(cmd, tc.output, isDone, durMs));
+    } else {
+      const pre = document.createElement('pre');
+      pre.className = 'terminal-text-block';
+      pre.textContent = tc.output || (isDone ? '(Completed with empty output)' : '(Reading file...)');
+      body.appendChild(pre);
+    }
+
+    header.onclick = () => {
+      const isOpen = body.style.display !== 'none';
+      body.style.display = isOpen ? 'none' : 'block';
+      card.classList.toggle('open', !isOpen);
+    };
+
+    card.appendChild(header);
+    card.appendChild(body);
+    return card;
   }
 
   createMessageRowElement(msg) {
@@ -1088,81 +1571,20 @@ class AgyApp {
     const bubble = document.createElement('div');
     bubble.className = 'message-bubble';
 
-    // Thinking process if present
+    // Agent Reasoning Block (Chain of thought with quote style)
     if (msg.thinking && msg.thinking.trim()) {
-      const thinkingCard = document.createElement('div');
-      thinkingCard.className = 'thinking-card';
-      thinkingCard.innerHTML = `
-        <div class="thinking-header" onclick="this.nextElementSibling.style.display = this.nextElementSibling.style.display === 'none' ? 'block' : 'none'">
-          <span>💭 Thinking process</span>
-          <span>▼</span>
-        </div>
-        <div class="thinking-body" style="display: none;">${this.escapeHtml(msg.thinking)}</div>
-      `;
-      bubble.appendChild(thinkingCard);
+      bubble.appendChild(this.createReasoningBlockElement(msg.thinking, msg.duration_seconds, msg.usage));
     }
 
-    // Tool calls
+    // Tool Calls with Smart Batch Aggregation & Semantic Categorization
     if (msg.tool_calls && msg.tool_calls.length > 0) {
-      msg.tool_calls.forEach(tc => {
-        const toolCard = document.createElement('div');
-        toolCard.className = 'tool-card';
-        const isDone = tc.state === 'DONE' || tc.output !== null;
-        const statusClass = isDone ? 'done' : 'active';
-        const durStr = tc.duration_seconds ? ` (${tc.duration_seconds.toFixed(2)}s)` : '';
-        const statusLabel = isDone ? `✔ DONE${durStr}` : '⚡ RUNNING';
-
-        let icon = '⚙️';
-        if (tc.name === 'run_command') icon = '⚡';
-        else if (tc.name.includes('view_file') || tc.name.includes('read_')) icon = '📖';
-        else if (tc.name.includes('write_') || tc.name.includes('replace_') || tc.name.includes('sed_') || tc.name.includes('edit')) icon = '✏️';
-        else if (tc.name.includes('web') || tc.name.includes('url') || tc.name.includes('browser')) icon = '🌐';
-
-        const summaryText = tc.summary || (tc.args && (tc.args.CommandLine || tc.args.AbsolutePath || tc.args.TargetFile || ''));
-        const titleHtml = summaryText ?
-          `<span>${icon} <strong>${this.escapeHtml(tc.name)}</strong> <code class="tool-header-action">${this.escapeHtml(summaryText)}</code></span>` :
-          `<span>${icon} <strong>${this.escapeHtml(tc.name)}</strong></span>`;
-
-        let paramsStr = '';
-        if (tc.args) {
-          paramsStr = typeof tc.args === 'object' ? JSON.stringify(tc.args, null, 2) : String(tc.args);
+      const toolGroups = this.groupToolCalls(msg.tool_calls);
+      toolGroups.forEach(group => {
+        if (group.type === 'batch_reads') {
+          bubble.appendChild(this.createBatchReadsElement(group.tools));
+        } else if (group.type === 'single') {
+          bubble.appendChild(this.createActionCardElement(group.tool));
         }
-
-        let outputContent = tc.output || (isDone ? '(Completed with empty output)' : '(Executing command in terminal...)');
-
-        let bodyHtml = '';
-        if (tc.name === 'run_command') {
-          const cmdLine = (tc.args && tc.args.CommandLine) ? tc.args.CommandLine : summaryText || 'run_command';
-          bodyHtml = `
-            <div class="tool-terminal-box">
-              <div class="terminal-cmd-bar">
-                <span class="terminal-cmd-text">$ ${this.escapeHtml(cmdLine)}</span>
-              </div>
-              <pre class="terminal-out-text"><code>${this.escapeHtml(outputContent)}</code></pre>
-            </div>
-          `;
-        } else {
-          bodyHtml = `
-<strong>Parameters:</strong>
-${this.escapeHtml(paramsStr)}
-
-<strong>Output:</strong>
-${this.escapeHtml(outputContent)}
-          `;
-        }
-
-        toolCard.innerHTML = `
-          <div class="tool-header" onclick="const b = this.nextElementSibling; b.style.display = b.style.display === 'none' ? 'block' : 'none'">
-            <div class="tool-title">
-              ${titleHtml}
-            </div>
-            <span class="tool-status-badge ${statusClass}">${statusLabel}</span>
-          </div>
-          <div class="tool-body" style="${isDone ? 'display: none;' : 'display: block;'}">
-            ${bodyHtml}
-          </div>
-        `;
-        bubble.appendChild(toolCard);
       });
     }
 
@@ -1812,13 +2234,15 @@ ${this.escapeHtml(outputContent)}
     // CPU Meter
     if (data.cpu) {
       const cpuPct = Math.max(0, Math.min(100, data.cpu.percent || 0));
-      const cpuFormatted = cpuPct.toFixed(1);
+      const cpuAscii = this.formatAsciiMeter(cpuPct, 8);
+      if (this.dom.microCpuAscii) {
+        this.dom.microCpuAscii.textContent = cpuAscii;
+      }
       if (this.dom.meterCpuVal) {
-        this.dom.meterCpuVal.textContent = `${cpuFormatted}% (${data.cores || 1} cores)`;
+        this.dom.meterCpuVal.textContent = `${Math.round(cpuPct)}%`;
       }
       if (this.dom.meterCpuBar) {
         this.dom.meterCpuBar.style.width = `${cpuPct}%`;
-        this.applyMeterBarClass(this.dom.meterCpuBar, cpuPct);
       }
       if (this.dom.headerCpuVal) {
         this.dom.headerCpuVal.textContent = `${Math.round(cpuPct)}%`;
@@ -1832,13 +2256,16 @@ ${this.escapeHtml(outputContent)}
       const totalMb = data.memory.total_mb || 1;
       const usedStr = usedMb >= 1024 ? (usedMb / 1024).toFixed(1) + ' GB' : Math.round(usedMb) + ' MB';
       const totalStr = totalMb >= 1024 ? (totalMb / 1024).toFixed(1) + ' GB' : Math.round(totalMb) + ' MB';
+      const ramAscii = this.formatAsciiMeter(memPct, 8);
 
+      if (this.dom.microRamAscii) {
+        this.dom.microRamAscii.textContent = ramAscii;
+      }
       if (this.dom.meterRamVal) {
-        this.dom.meterRamVal.textContent = `${Math.round(memPct)}% (${usedStr} / ${totalStr})`;
+        this.dom.meterRamVal.textContent = `${usedStr} / ${totalStr}`;
       }
       if (this.dom.meterRamBar) {
         this.dom.meterRamBar.style.width = `${memPct}%`;
-        this.applyMeterBarClass(this.dom.meterRamBar, memPct);
       }
       if (this.dom.headerRamVal) {
         this.dom.headerRamVal.textContent = `${Math.round(memPct)}%`;
@@ -1852,11 +2279,10 @@ ${this.escapeHtml(outputContent)}
       const totalGb = data.disk.total_gb || 1;
 
       if (this.dom.meterDiskVal) {
-        this.dom.meterDiskVal.textContent = `${Math.round(diskPct)}% (${usedGb} / ${totalGb} GB)`;
+        this.dom.meterDiskVal.textContent = `${usedGb} / ${totalGb} GB (${Math.round(diskPct)}%)`;
       }
       if (this.dom.meterDiskBar) {
         this.dom.meterDiskBar.style.width = `${diskPct}%`;
-        this.applyMeterBarClass(this.dom.meterDiskBar, diskPct);
       }
       if (this.dom.headerDiskVal) {
         this.dom.headerDiskVal.textContent = `${Math.round(diskPct)}%`;
