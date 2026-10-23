@@ -6,7 +6,8 @@ import asyncio
 import time
 import re
 from typing import Any, Dict, List, Optional
-from fastapi import APIRouter, HTTPException, BackgroundTasks
+from pathlib import Path
+from fastapi import APIRouter, HTTPException, BackgroundTasks, UploadFile, File
 from pydantic import BaseModel, Field
 
 from app.config import settings, save_settings
@@ -241,6 +242,71 @@ async def update_settings(new_settings: Dict[str, Any]):
             setattr(settings, k, v)
     save_settings(settings)
     return {"status": "ok"}
+
+
+# Branding
+@router.get("/branding")
+async def get_branding():
+    return {
+        "brand_prefix": settings.brand_prefix,
+        "brand_name": settings.brand_name,
+        "brand_badge": settings.brand_badge,
+        "brand_title": settings.brand_title,
+        "brand_tagline": settings.brand_tagline,
+        "brand_accent_color": settings.brand_accent_color,
+        "brand_accent_secondary": settings.brand_accent_secondary,
+        "brand_logo_url": settings.brand_logo_url,
+        "brand_favicon_url": settings.brand_favicon_url,
+    }
+
+
+@router.post("/branding")
+async def update_branding(new_branding: Dict[str, Any]):
+    allowed_keys = [
+        "brand_prefix",
+        "brand_name",
+        "brand_badge",
+        "brand_title",
+        "brand_tagline",
+        "brand_accent_color",
+        "brand_accent_secondary",
+        "brand_logo_url",
+        "brand_favicon_url",
+    ]
+    for k in allowed_keys:
+        if k in new_branding:
+            setattr(settings, k, new_branding[k])
+    save_settings(settings)
+    return {"status": "ok", "branding": await get_branding()}
+
+
+@router.post("/branding/logo")
+async def upload_branding_logo(file: UploadFile = File(...)):
+    if not file.content_type or not (
+        file.content_type.startswith("image/") or file.filename.lower().endswith((".svg", ".png", ".jpg", ".jpeg", ".webp", ".ico"))
+    ):
+        raise HTTPException(status_code=400, detail="Invalid file type. Please upload an SVG, PNG, WebP, or JPEG image.")
+
+    ext = Path(file.filename).suffix if file.filename else ".png"
+    if not ext:
+        ext = ".png"
+
+    STATIC_ASSETS_DIR = Path(__file__).resolve().parent.parent.parent / "static" / "assets"
+    STATIC_ASSETS_DIR.mkdir(parents=True, exist_ok=True)
+    target_path = STATIC_ASSETS_DIR / f"custom-logo{ext}"
+
+    content = await file.read()
+    if len(content) > 5 * 1024 * 1024:
+        raise HTTPException(status_code=400, detail="Logo file size exceeds 5MB limit.")
+
+    with open(target_path, "wb") as f:
+        f.write(content)
+
+    logo_url = f"/static/assets/custom-logo{ext}?v={int(time.time())}"
+    settings.brand_logo_url = logo_url
+    save_settings(settings)
+
+    return {"status": "ok", "brand_logo_url": logo_url}
 
 
 _last_cpu_idle: float = 0.0

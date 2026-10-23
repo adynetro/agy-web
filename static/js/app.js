@@ -157,6 +157,7 @@ class AgyApp {
     this.activeViewingPid = null;
     this.activeSteeringConvId = null;
 
+    this.branding = null;
     this.currentTheme = 'dark';
     this.init();
   }
@@ -166,6 +167,7 @@ class AgyApp {
     this.updateGreeting();
     this.bindEvents();
     this.setupMarkdown();
+    await this.fetchBranding();
     await this.fetchInitialSettings();
     await this.fetchModels();
     await this.fetchChannels();
@@ -546,6 +548,47 @@ class AgyApp {
     document.getElementById('btn-save-discord').addEventListener('click', () => this.saveDiscordConfig());
     // Settings save button
     document.getElementById('btn-save-settings').addEventListener('click', () => this.saveSettings());
+
+    // Custom Branding handlers
+    document.getElementById('btn-save-branding')?.addEventListener('click', () => this.saveBranding());
+    document.getElementById('btn-reset-branding')?.addEventListener('click', () => this.resetBranding());
+
+    ['brand-prefix-input', 'brand-name-input', 'brand-badge-input', 'brand-title-input', 'brand-tagline-input', 'brand-logo-input'].forEach(id => {
+      document.getElementById(id)?.addEventListener('input', () => this.updateBrandingPreview());
+    });
+
+    const colorPicker = document.getElementById('brand-color-picker');
+    const colorHex = document.getElementById('brand-color-hex');
+    if (colorPicker && colorHex) {
+      colorPicker.addEventListener('input', (e) => {
+        colorHex.value = e.target.value.toUpperCase();
+        this.updateBrandingPreview();
+      });
+      colorHex.addEventListener('input', (e) => {
+        if (/^#[0-9A-Fa-f]{6}$/.test(e.target.value)) {
+          colorPicker.value = e.target.value;
+          this.updateBrandingPreview();
+        }
+      });
+    }
+
+    document.querySelectorAll('.swatch-btn').forEach(btn => {
+      btn.addEventListener('click', () => {
+        const c = btn.getAttribute('data-color');
+        if (colorPicker) colorPicker.value = c;
+        if (colorHex) colorHex.value = c.toUpperCase();
+        this.updateBrandingPreview();
+      });
+    });
+
+    const logoFileInput = document.getElementById('brand-logo-file-input');
+    if (logoFileInput) {
+      logoFileInput.addEventListener('change', (e) => {
+        if (e.target.files && e.target.files[0]) {
+          this.uploadBrandingLogo(e.target.files[0]);
+        }
+      });
+    }
   }
 
   // --- API Calls ---
@@ -1225,6 +1268,8 @@ ${this.escapeHtml(outputContent)}
     });
     if (tabId === 'tab-host') {
       this.loadSystemInfoForm();
+    } else if (tabId === 'tab-branding') {
+      this.loadBrandingForm();
     }
   }
 
@@ -1237,6 +1282,7 @@ ${this.escapeHtml(outputContent)}
     await Promise.all([
       this.loadSettingsForm(),
       this.loadDiscordForm(),
+      this.loadBrandingForm(),
       this.loadSystemInfoForm()
     ]);
   }
@@ -1407,6 +1453,301 @@ ${this.escapeHtml(outputContent)}
       if (this.dom.modalSettings) this.dom.modalSettings.style.display = 'none';
     } catch (e) {
       alert('Error saving settings: ' + e);
+    }
+  }
+
+  // --- Custom Branding System ---
+
+  hexToRgba(hex, alpha = 1) {
+    if (!hex) return `rgba(49, 134, 255, ${alpha})`;
+    let c = hex.replace('#', '');
+    if (c.length === 3) {
+      c = c.split('').map(x => x + x).join('');
+    }
+    const num = parseInt(c, 16);
+    if (isNaN(num)) return `rgba(49, 134, 255, ${alpha})`;
+    const r = (num >> 16) & 255;
+    const g = (num >> 8) & 255;
+    const b = num & 255;
+    return `rgba(${r}, ${g}, ${b}, ${alpha})`;
+  }
+
+  async fetchBranding() {
+    try {
+      const res = await fetch('/api/branding');
+      if (!res.ok) return;
+      const data = await res.json();
+      this.branding = data;
+      this.applyBranding(data);
+    } catch (e) {
+      console.warn('Failed to fetch custom branding:', e);
+    }
+  }
+
+  applyBranding(b) {
+    if (!b) return;
+    this.branding = b;
+
+    // Document title
+    if (b.brand_title) {
+      document.title = b.brand_title;
+    }
+
+    // Favicon
+    if (b.brand_favicon_url) {
+      const fav = document.getElementById('app-favicon');
+      if (fav) fav.href = b.brand_favicon_url;
+    }
+
+    // Sidebar Identity
+    const elPrefix = document.getElementById('brand-prefix-text');
+    if (elPrefix) elPrefix.textContent = b.brand_prefix || '';
+
+    const elName = document.getElementById('brand-name-text');
+    if (elName) elName.textContent = b.brand_name || 'Antigravity';
+
+    const elBadge = document.getElementById('brand-badge-pill');
+    if (elBadge) elBadge.textContent = b.brand_badge || 'AGY 2.0';
+
+    // Logos in Sidebar & Header
+    const customLogoImg = document.getElementById('sidebar-brand-custom-logo');
+    const svgMark = document.getElementById('brand-svg-mark');
+    const headerMiniCustomLogo = document.getElementById('header-mini-custom-logo');
+    const headerMiniSvg = document.getElementById('header-mini-svg-mark');
+
+    if (b.brand_logo_url) {
+      if (customLogoImg) {
+        customLogoImg.src = b.brand_logo_url;
+        customLogoImg.style.display = 'block';
+      }
+      if (svgMark) svgMark.style.display = 'none';
+      if (headerMiniCustomLogo) {
+        headerMiniCustomLogo.src = b.brand_logo_url;
+        headerMiniCustomLogo.style.display = 'block';
+      }
+      if (headerMiniSvg) headerMiniSvg.style.display = 'none';
+    } else {
+      if (customLogoImg) customLogoImg.style.display = 'none';
+      if (svgMark) svgMark.style.display = 'block';
+      if (headerMiniCustomLogo) headerMiniCustomLogo.style.display = 'none';
+      if (headerMiniSvg) headerMiniSvg.style.display = 'block';
+    }
+
+    // Welcome Screen Brand Header
+    const isDefaultBrand = (!b.brand_prefix || b.brand_prefix === 'Google') && (!b.brand_name || b.brand_name === 'Antigravity');
+    const welcomeDark = document.getElementById('welcome-logo-dark');
+    const welcomeLight = document.getElementById('welcome-logo-light');
+    const welcomeCustom = document.getElementById('welcome-custom-brand');
+    const welcomePrefix = document.getElementById('welcome-custom-prefix');
+    const welcomeName = document.getElementById('welcome-custom-name');
+
+    if (isDefaultBrand && !b.brand_logo_url) {
+      if (welcomeDark) welcomeDark.style.display = '';
+      if (welcomeLight) welcomeLight.style.display = '';
+      if (welcomeCustom) welcomeCustom.style.display = 'none';
+    } else {
+      if (welcomeDark) welcomeDark.style.display = 'none';
+      if (welcomeLight) welcomeLight.style.display = 'none';
+      if (welcomeCustom) {
+        welcomeCustom.style.display = 'flex';
+        if (welcomePrefix) welcomePrefix.textContent = b.brand_prefix || '';
+        if (welcomeName) welcomeName.textContent = b.brand_name || 'Antigravity';
+      }
+    }
+
+    // Welcome Subtitle / Tagline
+    if (b.brand_tagline) {
+      const elSubtitle = document.getElementById('welcome-subtitle');
+      if (elSubtitle) elSubtitle.textContent = b.brand_tagline;
+    }
+
+    // Dynamic Theme Accent Colors
+    if (b.brand_accent_color) {
+      const color = b.brand_accent_color;
+      const root = document.documentElement;
+      root.style.setProperty('--accent-primary', color);
+      root.style.setProperty('--google-blue', color);
+      root.style.setProperty('--border-glow', this.hexToRgba(color, 0.28));
+      root.style.setProperty('--accent-light', this.hexToRgba(color, 0.12));
+      root.style.setProperty('--accent-glow', `0 0 20px ${this.hexToRgba(color, 0.35)}`);
+      root.style.setProperty('--accent-gradient', `linear-gradient(135deg, ${color} 0%, ${this.hexToRgba(color, 0.85)} 100%)`);
+    }
+
+    if (b.brand_accent_secondary) {
+      document.documentElement.style.setProperty('--google-yellow', b.brand_accent_secondary);
+    }
+  }
+
+  async loadBrandingForm() {
+    try {
+      if (!this.branding) {
+        const res = await fetch('/api/branding');
+        if (res.ok) this.branding = await res.json();
+      }
+      const b = this.branding || {
+        brand_prefix: 'Google',
+        brand_name: 'Antigravity',
+        brand_badge: 'AGY 2.0',
+        brand_title: 'Google Antigravity (agy)',
+        brand_tagline: 'Autonomous AI agent for your homelab infrastructure. Monitor system health, manage containers, audit networks, and maintain server reliability.',
+        brand_accent_color: '#3186FF',
+        brand_accent_secondary: '#FFE432',
+        brand_logo_url: '',
+        brand_favicon_url: '/static/assets/favicon.svg',
+      };
+
+      const setVal = (id, val) => {
+        const el = document.getElementById(id);
+        if (el) el.value = val !== undefined && val !== null ? val : '';
+      };
+
+      setVal('brand-prefix-input', b.brand_prefix);
+      setVal('brand-name-input', b.brand_name);
+      setVal('brand-badge-input', b.brand_badge);
+      setVal('brand-title-input', b.brand_title);
+      setVal('brand-tagline-input', b.brand_tagline);
+      setVal('brand-color-picker', b.brand_accent_color || '#3186FF');
+      setVal('brand-color-hex', b.brand_accent_color || '#3186FF');
+      setVal('brand-logo-input', b.brand_logo_url || '');
+      setVal('brand-favicon-input', b.brand_favicon_url || '/static/assets/favicon.svg');
+
+      this.updateBrandingPreview();
+    } catch (e) {
+      console.error('Failed to load branding form:', e);
+    }
+  }
+
+  updateBrandingPreview() {
+    const prefix = document.getElementById('brand-prefix-input')?.value || '';
+    const name = document.getElementById('brand-name-input')?.value || 'Antigravity';
+    const badge = document.getElementById('brand-badge-input')?.value || 'AGY 2.0';
+    const tagline = document.getElementById('brand-tagline-input')?.value || '';
+    const color = document.getElementById('brand-color-hex')?.value || '#3186FF';
+    const logoUrl = document.getElementById('brand-logo-input')?.value || '';
+
+    const elPrefix = document.getElementById('preview-prefix-display');
+    const elName = document.getElementById('preview-name-display');
+    const elBadge = document.getElementById('preview-badge-display');
+    const elTagline = document.getElementById('preview-tagline-display');
+    const iconBox = document.getElementById('preview-brand-icon-box');
+    const svgMark = document.getElementById('preview-svg-mark');
+    const customImg = document.getElementById('preview-custom-img');
+
+    if (elPrefix) elPrefix.textContent = prefix;
+    if (elName) elName.textContent = name;
+    if (elBadge) elBadge.textContent = badge;
+    if (elTagline) elTagline.textContent = tagline;
+
+    if (iconBox) {
+      iconBox.style.background = this.hexToRgba(color, 0.15);
+      iconBox.style.borderColor = this.hexToRgba(color, 0.35);
+      iconBox.style.boxShadow = `0 0 12px ${this.hexToRgba(color, 0.25)}`;
+    }
+
+    if (logoUrl) {
+      if (customImg) {
+        customImg.src = logoUrl;
+        customImg.style.display = 'block';
+      }
+      if (svgMark) svgMark.style.display = 'none';
+    } else {
+      if (customImg) customImg.style.display = 'none';
+      if (svgMark) svgMark.style.display = 'block';
+      const path = svgMark?.querySelector('path');
+      if (path) path.setAttribute('fill', color);
+    }
+
+    // Active state on preset swatches
+    document.querySelectorAll('.swatch-btn').forEach(btn => {
+      const btnColor = btn.getAttribute('data-color');
+      if (btnColor && btnColor.toLowerCase() === color.toLowerCase()) {
+        btn.classList.add('active');
+      } else {
+        btn.classList.remove('active');
+      }
+    });
+  }
+
+  async saveBranding() {
+    const payload = {
+      brand_prefix: document.getElementById('brand-prefix-input')?.value || '',
+      brand_name: document.getElementById('brand-name-input')?.value || 'Antigravity',
+      brand_badge: document.getElementById('brand-badge-input')?.value || 'AGY 2.0',
+      brand_title: document.getElementById('brand-title-input')?.value || 'Google Antigravity (agy)',
+      brand_tagline: document.getElementById('brand-tagline-input')?.value || '',
+      brand_accent_color: document.getElementById('brand-color-hex')?.value || '#3186FF',
+      brand_logo_url: document.getElementById('brand-logo-input')?.value || '',
+      brand_favicon_url: document.getElementById('brand-favicon-input')?.value || '/static/assets/favicon.svg',
+    };
+
+    try {
+      const res = await fetch('/api/branding', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(payload)
+      });
+      if (!res.ok) throw new Error(await res.text());
+      const data = await res.json();
+      this.applyBranding(data.branding || payload);
+      alert('Custom branding saved and applied successfully!');
+      if (this.dom.modalSettings) this.dom.modalSettings.style.display = 'none';
+    } catch (e) {
+      alert('Error saving branding: ' + e);
+    }
+  }
+
+  resetBranding() {
+    const defaults = {
+      brand_prefix: 'Google',
+      brand_name: 'Antigravity',
+      brand_badge: 'AGY 2.0',
+      brand_title: 'Google Antigravity (agy)',
+      brand_tagline: 'Autonomous AI agent for your homelab infrastructure. Monitor system health, manage containers, audit networks, and maintain server reliability.',
+      brand_accent_color: '#3186FF',
+      brand_accent_secondary: '#FFE432',
+      brand_logo_url: '',
+      brand_favicon_url: '/static/assets/favicon.svg',
+    };
+
+    const setVal = (id, val) => {
+      const el = document.getElementById(id);
+      if (el) el.value = val || '';
+    };
+
+    setVal('brand-prefix-input', defaults.brand_prefix);
+    setVal('brand-name-input', defaults.brand_name);
+    setVal('brand-badge-input', defaults.brand_badge);
+    setVal('brand-title-input', defaults.brand_title);
+    setVal('brand-tagline-input', defaults.brand_tagline);
+    setVal('brand-color-picker', defaults.brand_accent_color);
+    setVal('brand-color-hex', defaults.brand_accent_color);
+    setVal('brand-logo-input', defaults.brand_logo_url);
+    setVal('brand-favicon-input', defaults.brand_favicon_url);
+
+    this.updateBrandingPreview();
+  }
+
+  async uploadBrandingLogo(file) {
+    if (!file) return;
+    const formData = new FormData();
+    formData.append('file', file);
+
+    try {
+      const res = await fetch('/api/branding/logo', {
+        method: 'POST',
+        body: formData,
+      });
+      if (!res.ok) throw new Error(await res.text());
+      const data = await res.json();
+      if (data.brand_logo_url) {
+        const logoInput = document.getElementById('brand-logo-input');
+        if (logoInput) logoInput.value = data.brand_logo_url;
+        this.updateBrandingPreview();
+        if (this.branding) this.branding.brand_logo_url = data.brand_logo_url;
+        this.applyBranding(this.branding);
+      }
+    } catch (e) {
+      alert('Failed to upload logo: ' + e);
     }
   }
 

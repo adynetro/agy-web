@@ -214,6 +214,25 @@ agy-webui/
 
 ---
 
+## 🎨 Custom Branding & Visual Identity
+
+Antigravity Web UI supports real-time custom branding without recompilation or page reloads:
+
+- **Branding Settings Tab**: Open **Settings & Integrations > 🎨 Branding** in the web interface.
+- **Configurable Identity**:
+  - **Brand Prefix & Name**: Customize the header identity (e.g. `Google` + `Antigravity` or `Homelab` + `Orchestrator`).
+  - **Header Badge**: Customize runtime tag pill (e.g. `AGY 2.0`, `LAB`, `ENTERPRISE`).
+  - **Window Title & Favicon**: Set custom browser tab titles and favicon links.
+  - **Hero Headline & Tagline**: Personalize the welcome banner and prompt suggestions.
+  - **Accent Color Palette**: Interactive color picker with 6 curated palette presets (Electric Blue, Emerald Green, Neon Violet, Cyberpunk Amber, Ruby Coral, Electric Cyan) which dynamically re-skin CSS variables across the entire application.
+  - **Custom Logo Upload**: Upload an SVG or PNG image directly via the UI or supply a custom image URL.
+- **REST API Endpoints**:
+  - `GET /api/branding`: Fetch current branding parameters.
+  - `POST /api/branding`: Update branding fields in real time.
+  - `POST /api/branding/logo`: Upload and set custom emblem/logo file.
+
+---
+
 ## 📄 License
 
 Licensed under the Apache License, Version 2.0. See [LICENSE](LICENSE) for details.

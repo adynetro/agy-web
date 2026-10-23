@@ -13,5 +13,14 @@
   "discord_allowed_channels": [],
   "discord_allowed_guilds": [],
   "discord_auto_thread": false,
-  "discord_show_tools": true
+  "discord_show_tools": true,
+  "brand_prefix": "Google",
+  "brand_name": "Antigravity",
+  "brand_badge": "AGY 2.0",
+  "brand_title": "Google Antigravity (agy)",
+  "brand_tagline": "Autonomous AI agent for your homelab infrastructure. Monitor system health, manage containers, audit networks, and maintain server reliability.",
+  "brand_accent_color": "#3186FF",
+  "brand_accent_secondary": "#FFE432",
+  "brand_logo_url": "",
+  "brand_favicon_url": "/static/assets/favicon.svg"
 }

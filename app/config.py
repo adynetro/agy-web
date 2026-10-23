@@ -44,6 +44,20 @@ class Settings(BaseModel):
     discord_auto_thread: bool = Field(default=False, description="Automatically spawn threads for channel questions")
     discord_show_tools: bool = Field(default=True, description="Post tool execution notifications in Discord")
 
+    # Custom Branding Settings
+    brand_prefix: str = Field(default="Google", description="Brand prefix or organization name")
+    brand_name: str = Field(default="Antigravity", description="Primary brand or platform name")
+    brand_badge: str = Field(default="AGY 2.0", description="Badge text displayed in sidebar header")
+    brand_title: str = Field(default="Google Antigravity (agy)", description="Browser page title")
+    brand_tagline: str = Field(
+        default="Autonomous AI agent for your homelab infrastructure. Monitor system health, manage containers, audit networks, and maintain server reliability.",
+        description="Welcome banner hero subtitle / description",
+    )
+    brand_accent_color: str = Field(default="#3186FF", description="Primary accent color in hex")
+    brand_accent_secondary: str = Field(default="#FFE432", description="Secondary accent / highlight color in hex")
+    brand_logo_url: str = Field(default="", description="Custom logo image or SVG URL")
+    brand_favicon_url: str = Field(default="/static/assets/favicon.svg", description="Custom favicon URL")
+
 
 def get_default_settings() -> Settings:
     token = os.environ.get("DISCORD_BOT_TOKEN", "")
