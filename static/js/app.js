@@ -85,6 +85,7 @@ class AgyApp {
 
       // Quota Elements
       meterQuotaVal: document.getElementById('meter-quota-val'),
+      meterQuotaSubVal: document.getElementById('meter-quota-sub-val'),
       meterQuotaBar: document.getElementById('meter-quota-bar'),
       meterQuotaReset: document.getElementById('meter-quota-reset'),
       meterWeeklyQuotaVal: document.getElementById('meter-weekly-quota-val'),
@@ -338,9 +339,16 @@ class AgyApp {
       this.dom.deckChipBtw.addEventListener('click', () => this.openQuickBtwModal());
     }
     if (this.dom.btnToggleQuota) {
+      if (localStorage.getItem('agy_quota_panel_open') === 'true' && this.dom.panelQuota) {
+        this.dom.panelQuota.style.display = 'flex';
+      }
       this.dom.btnToggleQuota.addEventListener('click', () => {
         const p = this.dom.panelQuota;
-        if (p) p.style.display = p.style.display === 'none' ? 'flex' : 'none';
+        if (p) {
+          const isClosed = p.style.display === 'none' || !p.style.display;
+          p.style.display = isClosed ? 'flex' : 'none';
+          localStorage.setItem('agy_quota_panel_open', isClosed ? 'true' : 'false');
+        }
       });
     }
 
@@ -488,14 +496,13 @@ class AgyApp {
       });
     }
 
-    // Quota Refresh & Pill Trigger
+    // Quota Refresh Trigger
     if (this.dom.btnRefreshQuota) {
       this.dom.btnRefreshQuota.addEventListener('click', () => this.fetchQuotaMetrics(true));
     }
     if (this.dom.headerQuotaPill) {
       this.dom.headerQuotaPill.addEventListener('click', () => {
         this.fetchQuotaMetrics(true);
-        if (this.dom.tabBtnQuota) this.dom.tabBtnQuota.click();
       });
     }
 
@@ -2322,9 +2329,12 @@ class AgyApp {
       this.dom.headerQuotaPill.title = title;
     }
 
-    // Sidebar 5-Hour Quota Meter
+    // Sidebar 5-Hour Quota Meter Peek & Detail
     if (this.dom.meterQuotaVal) {
       this.dom.meterQuotaVal.textContent = typeof g5h === 'number' ? `${g5h}%` : '--%';
+    }
+    if (this.dom.meterQuotaSubVal) {
+      this.dom.meterQuotaSubVal.textContent = typeof g5h === 'number' ? `${g5h}%` : '--%';
     }
     if (this.dom.meterQuotaBar) {
       const pct = typeof g5h === 'number' ? Math.max(0, Math.min(100, g5h)) : 0;
