@@ -2324,7 +2324,7 @@ class AgyApp {
 
     // Sidebar 5-Hour Quota Meter
     if (this.dom.meterQuotaVal) {
-      this.dom.meterQuotaVal.textContent = typeof g5h === 'number' ? `${g5h}% remaining` : '--';
+      this.dom.meterQuotaVal.textContent = typeof g5h === 'number' ? `${g5h}%` : '--%';
     }
     if (this.dom.meterQuotaBar) {
       const pct = typeof g5h === 'number' ? Math.max(0, Math.min(100, g5h)) : 0;
@@ -2355,7 +2355,7 @@ class AgyApp {
 
     // Sidebar Weekly Quota Meter
     if (this.dom.meterWeeklyQuotaVal) {
-      this.dom.meterWeeklyQuotaVal.textContent = typeof gWeekly === 'number' ? `${gWeekly}% remaining` : '--';
+      this.dom.meterWeeklyQuotaVal.textContent = typeof gWeekly === 'number' ? `${gWeekly}%` : '--%';
     }
     if (this.dom.meterWeeklyQuotaBar) {
       const wpct = typeof gWeekly === 'number' ? Math.max(0, Math.min(100, gWeekly)) : 0;

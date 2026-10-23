@@ -4361,36 +4361,57 @@ input:checked + .slider:before {
   padding: 4px 10px;
 }
 
-.telemetry-quota-row {
+/* Telemetry Quota Section (Always Visible) */
+.telemetry-quota-section {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  padding-top: 8px;
+  border-top: 1px solid rgba(255, 255, 255, 0.05);
+}
+
+.quota-meter-card {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.quota-meter-header {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  padding-top: 4px;
-  border-top: 1px solid rgba(255, 255, 255, 0.04);
-}
-
-.btn-quota-toggle {
-  background: none;
-  border: none;
-  display: flex;
-  align-items: center;
-  gap: 6px;
-  cursor: pointer;
-  padding: 2px 4px;
-  border-radius: 4px;
-  color: var(--text-muted);
-  font-size: 11px;
   font-family: var(--font-mono);
-  transition: color 0.15s ease;
+  font-size: 11px;
 }
 
-.btn-quota-toggle:hover {
+.quota-meter-title {
   color: var(--text-secondary);
+  font-weight: 500;
 }
 
 .quota-val-pill {
   color: var(--accent-cyan);
   font-weight: 600;
+  font-family: var(--font-mono);
+  font-size: 11px;
+}
+
+.quota-reset-text {
+  font-size: 10px;
+  color: var(--text-muted);
+  font-family: var(--font-mono);
+  margin-top: 1px;
+}
+
+.telemetry-tokens-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding-top: 5px;
+  font-family: var(--font-mono);
+  font-size: 10.5px;
+  color: var(--text-muted);
+  border-top: 1px solid rgba(255, 255, 255, 0.04);
 }
 
 .token-val-pill {
@@ -4399,37 +4420,44 @@ input:checked + .slider:before {
   color: var(--text-muted);
 }
 
-.quota-detail-panel {
-  display: flex;
-  flex-direction: column;
+/* Micro Quota Bar Fill Colors */
+.micro-bar-fill.quota-bar-5h,
+.micro-bar-fill.quota-tokens {
+  background: linear-gradient(90deg, #38bdf8 0%, #0284c7 100%);
+}
+
+.micro-bar-fill.quota-bar-weekly,
+.micro-bar-fill.quota-weekly {
+  background: linear-gradient(90deg, #818cf8 0%, #4f46e5 100%);
+}
+
+.micro-bar-fill.meter-bar-low {
+  background: linear-gradient(90deg, #34d399 0%, #059669 100%) !important;
+}
+
+.micro-bar-fill.meter-bar-med {
+  background: linear-gradient(90deg, #fbbf24 0%, #d97706 100%) !important;
+}
+
+.micro-bar-fill.meter-bar-high {
+  background: linear-gradient(90deg, #f87171 0%, #dc2626 100%) !important;
+}
+
+/* Header Quota Pill */
+.btn-header-cli.header-quota-pill {
   gap: 6px;
-  padding: 8px;
-  background-color: #0d1117;
-  border-radius: 6px;
-  border: 1px solid var(--border-subtle);
-  font-size: 11px;
+  padding: 6px 12px;
+}
+
+.quota-header-icon {
+  font-size: 13px;
+}
+
+.quota-badge-val {
+  color: var(--accent-cyan);
   font-family: var(--font-mono);
-}
-
-.quota-meter-line {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-}
-
-.quota-line-name {
-  width: 60px;
-  color: var(--text-secondary);
-}
-
-.inline-track {
-  flex: 1;
-}
-
-.quota-reset-text {
-  font-size: 10px;
-  color: var(--text-muted);
-  margin-top: 2px;
+  font-weight: 700;
+  font-size: 12px;
 }
 
 /* --- Header Navigation & Breadcrumbs --- */

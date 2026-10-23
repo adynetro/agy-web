@@ -13,7 +13,7 @@
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=JetBrains+Mono:ital,wght@0,400;0,500;0,600;0,700;1,400&family=Material+Symbols+Outlined:opsz,wght,FILL,GRAD@20..48,100..700,0..1,-50..200&display=swap" rel="stylesheet">
   <link rel="stylesheet" href="/static/vendor/github-dark.min.css">
-  <link rel="stylesheet" href="/static/css/app.css?v=3.1">
+  <link rel="stylesheet" href="/static/css/app.css?v=3.2">
 </head>
 <body>
   <div id="app">
@@ -105,38 +105,44 @@
           </div>
         </div>
 
-        <!-- Quota & Tokens Secondary Peek -->
-        <div class="telemetry-quota-row">
-          <button id="btn-toggle-quota" class="btn-quota-toggle" title="View Quota & Turn Tokens">
-            <span class="quota-toggle-label">📊 Quota (5h):</span>
-            <span id="meter-quota-val" class="quota-val-pill">--%</span>
-          </button>
+        <!-- Quota Deck (Always Visible) -->
+        <div class="telemetry-quota-section">
+          <div class="quota-meter-card">
+            <div class="quota-meter-header">
+              <span class="quota-meter-title">⚡ Gemini 5h Quota</span>
+              <span id="meter-quota-val" class="quota-val-pill">--%</span>
+            </div>
+            <div class="micro-bar-track">
+              <div id="meter-quota-bar" class="micro-bar-fill quota-bar-5h" style="width: 100%;"></div>
+            </div>
+            <div id="meter-quota-reset" class="quota-reset-text">Resets: --</div>
+          </div>
+
+          <div class="quota-meter-card">
+            <div class="quota-meter-header">
+              <span class="quota-meter-title">📅 Weekly Quota</span>
+              <span id="meter-weekly-quota-val" class="quota-val-pill">--%</span>
+            </div>
+            <div class="micro-bar-track">
+              <div id="meter-weekly-quota-bar" class="micro-bar-fill quota-bar-weekly" style="width: 100%;"></div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Turn Tokens Secondary Peek -->
+        <div class="telemetry-tokens-row">
+          <span class="tokens-label">Turn Tokens:</span>
           <span id="telemetry-total-val" class="token-val-pill" title="Tokens used in turn">0 tok</span>
         </div>
 
-        <!-- Collapsible Quota Dropdown Panel -->
-        <div id="panel-quota" class="quota-detail-panel" style="display: none;">
-          <div class="quota-meter-line">
-            <span class="quota-line-name">5h Quota</span>
-            <div class="micro-bar-track inline-track">
-              <div id="meter-quota-bar" class="micro-bar-fill quota-tokens" style="width: 100%;"></div>
-            </div>
-          </div>
-          <div class="quota-meter-line">
-            <span class="quota-line-name">Weekly</span>
-            <div class="micro-bar-track inline-track">
-              <div id="meter-weekly-quota-bar" class="micro-bar-fill quota-weekly" style="width: 100%;"></div>
-            </div>
-          </div>
-          <div id="meter-quota-reset" class="quota-reset-text">Resets: --</div>
-          <!-- Hidden fallback elements for JS references -->
-          <div style="display: none;">
-            <span id="meter-weekly-quota-val"></span>
-            <span id="meter-input-val"></span><div id="meter-input-bar"></div>
-            <span id="meter-output-val"></span><div id="meter-output-bar"></div>
-            <span id="meter-thinking-val"></span><div id="meter-thinking-bar"></div>
-            <span id="meter-cache-val"></span><div id="meter-cache-bar"></div>
-          </div>
+        <!-- Hidden fallback elements for legacy JS references -->
+        <div style="display: none;">
+          <div id="panel-quota"></div>
+          <button id="btn-toggle-quota"></button>
+          <span id="meter-input-val"></span><div id="meter-input-bar"></div>
+          <span id="meter-output-val"></span><div id="meter-output-bar"></div>
+          <span id="meter-thinking-val"></span><div id="meter-thinking-bar"></div>
+          <span id="meter-cache-val"></span><div id="meter-cache-bar"></div>
         </div>
       </div>
 
@@ -212,6 +218,12 @@
               <option value="accept-edits">Mode: Accept Edits</option>
             </select>
           </div>
+
+          <button id="header-quota-pill" class="btn-header-cli header-quota-pill" title="Gemini 5-Hour Quota Remaining (Click to refresh)">
+            <span class="quota-header-icon">📊</span>
+            <span class="btn-label">Quota</span>
+            <span id="header-quota-val" class="quota-badge-val">--%</span>
+          </button>
 
           <button id="btn-header-processes" class="btn-header-cli btn-header-processes" title="Active Antigravity (agy) Processes">
             <span class="cli-btn-dot processes-btn-dot"></span>
@@ -776,6 +788,6 @@
 
   <script src="/static/vendor/marked.min.js"></script>
   <script src="/static/vendor/highlight.min.js"></script>
-  <script src="/static/js/app.js?v=3.1"></script>
+  <script src="/static/js/app.js?v=3.2"></script>
 </body>
 </html>
