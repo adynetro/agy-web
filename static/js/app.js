@@ -1475,12 +1475,35 @@ ${this.escapeHtml(outputContent)}
   async fetchBranding() {
     try {
       const res = await fetch('/api/branding');
-      if (!res.ok) return;
-      const data = await res.json();
-      this.branding = data;
-      this.applyBranding(data);
+      if (res.ok) {
+        const data = await res.json();
+        this.branding = data;
+        this.applyBranding(data);
+        return;
+      }
     } catch (e) {
-      console.warn('Failed to fetch custom branding:', e);
+      console.warn('Failed to fetch /api/branding, checking settings fallback:', e);
+    }
+
+    try {
+      const res = await fetch('/api/settings');
+      if (res.ok) {
+        const s = await res.json();
+        this.branding = {
+          brand_prefix: s.brand_prefix !== undefined ? s.brand_prefix : 'Google',
+          brand_name: s.brand_name !== undefined ? s.brand_name : 'Antigravity',
+          brand_badge: s.brand_badge !== undefined ? s.brand_badge : 'AGY 2.0',
+          brand_title: s.brand_title !== undefined ? s.brand_title : 'Google Antigravity (agy)',
+          brand_tagline: s.brand_tagline !== undefined ? s.brand_tagline : 'Autonomous AI agent for your homelab infrastructure. Monitor system health, manage containers, audit networks, and maintain server reliability.',
+          brand_accent_color: s.brand_accent_color || '#3186FF',
+          brand_accent_secondary: s.brand_accent_secondary || '#FFE432',
+          brand_logo_url: s.brand_logo_url || '',
+          brand_favicon_url: s.brand_favicon_url || '/static/assets/favicon.svg',
+        };
+        this.applyBranding(this.branding);
+      }
+    } catch (e) {
+      console.warn('Failed to fetch fallback settings:', e);
     }
   }
 
@@ -1681,11 +1704,19 @@ ${this.escapeHtml(outputContent)}
     };
 
     try {
-      const res = await fetch('/api/branding', {
+      let res = await fetch('/api/branding', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(payload)
       });
+      if (!res.ok) {
+        // Seamless fallback to /api/settings if server hasn't restarted yet
+        res = await fetch('/api/settings', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(payload)
+        });
+      }
       if (!res.ok) throw new Error(await res.text());
       const data = await res.json();
       this.applyBranding(data.branding || payload);
