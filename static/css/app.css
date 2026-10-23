@@ -1584,20 +1584,21 @@ button, a, input, select, textarea, .suggestion-card, .conv-item, .design-tab-bt
   background-color: var(--danger);
   color: white;
   border: none;
-  padding: 0 14px;
-  height: 38px;
-  border-radius: var(--radius-full);
+  padding: 0 16px;
+  height: 44px;
+  border-radius: 12px;
   display: flex;
   align-items: center;
   gap: 6px;
-  font-size: 13px;
+  font-size: 14px;
   font-weight: 600;
   cursor: pointer;
-  transition: opacity 0.15s;
+  transition: opacity 0.15s, transform 0.15s;
 }
 
 .btn-abort:hover {
-  opacity: 0.9;
+  opacity: 0.95;
+  transform: translateY(-1px);
 }
 
 /* ==========================================================================
