@@ -122,7 +122,8 @@ async def send_chat(req: ChatRequest):
 # Abort turn
 @router.post("/abort/{conversation_id}")
 async def abort_conversation(conversation_id: str):
-    aborted = await engine.abort(conversation_id)
+    from app.session_manager import session_manager
+    aborted = await session_manager.abort_turn(conversation_id)
     return {"status": "ok" if aborted else "not_running"}
 
 

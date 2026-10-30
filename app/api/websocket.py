@@ -1,12 +1,14 @@
 from __future__ import annotations
 import asyncio
 import json
+import time
 from typing import Optional
 from fastapi import APIRouter, WebSocket, WebSocketDisconnect
-from app.engine import engine
+
 from app.channels.web import web_channel
 from app.config import settings
 from app.processes import process_manager
+from app.session_manager import session_manager
 
 ws_router = APIRouter()
 
@@ -17,6 +19,14 @@ async def websocket_chat_endpoint(websocket: WebSocket, conversation_id: Optiona
     await websocket.accept()
     current_conv_id = conversation_id
     web_channel.register_client(websocket, current_conv_id)
+
+    # Immediately synchronize the selected tab on initial connection
+    if current_conv_id:
+        try:
+            state = session_manager.get_session_state(current_conv_id, last_seq=0)
+            await websocket.send_text(json.dumps(state))
+        except Exception as e:
+            print(f"Error sending initial session state for {current_conv_id}: {e}")
 
     try:
         while True:
@@ -32,18 +42,51 @@ async def websocket_chat_endpoint(websocket: WebSocket, conversation_id: Optiona
 
             msg_type = data.get("type", "prompt")
 
-            if msg_type == "abort":
+            if msg_type in ("subscribe", "resume", "switch_conversation"):
+                target_conv_id = data.get("conversation_id")
+                last_seq = int(data.get("last_seq", 0))
+
+                if target_conv_id and target_conv_id != current_conv_id:
+                    web_channel.unregister_client(websocket, current_conv_id)
+                    current_conv_id = target_conv_id
+                    web_channel.register_client(websocket, current_conv_id)
+
                 if current_conv_id:
-                    aborted = await engine.abort(current_conv_id)
+                    state = session_manager.get_session_state(current_conv_id, last_seq=last_seq)
+                    await websocket.send_text(json.dumps(state))
+                continue
+
+            if msg_type == "get_terminal_history":
+                target_conv_id = data.get("conversation_id") or current_conv_id
+                limit = int(data.get("limit", 150))
+                if target_conv_id:
+                    lines = session_manager.get_terminal_history(target_conv_id, limit=limit)
+                    await websocket.send_text(json.dumps({
+                        "type": "terminal_history",
+                        "conversation_id": target_conv_id,
+                        "lines": lines
+                    }))
+                continue
+
+            if msg_type == "ping":
+                await websocket.send_text(json.dumps({
+                    "type": "pong",
+                    "timestamp": time.time(),
+                }))
+                continue
+
+            if msg_type == "abort":
+                target_conv_id = data.get("conversation_id") or current_conv_id
+                if target_conv_id:
+                    aborted = await session_manager.abort_turn(target_conv_id)
                     await websocket.send_text(json.dumps({
                         "type": "aborted",
-                        "conversation_id": current_conv_id,
+                        "conversation_id": target_conv_id,
                         "success": aborted
                     }))
                 continue
 
             if msg_type == "btw":
-                # Steering instruction injected by user
                 btw_msg = (data.get("message") or data.get("prompt") or "").strip()
                 target_conv_id = data.get("conversation_id") or current_conv_id
                 interrupt = bool(data.get("interrupt", False))
@@ -82,105 +125,94 @@ async def websocket_chat_endpoint(websocket: WebSocket, conversation_id: Optiona
                 mode = data.get("mode") or settings.default_mode
                 cwd = data.get("cwd") or settings.default_cwd
 
-                try:
-                    async for event in engine.execute_turn(
-                        prompt=prompt_text,
-                        conversation_id=req_conv_id,
-                        model=model,
-                        effort=effort,
-                        mode=mode,
-                        cwd=cwd,
-                    ):
-                        ev_type = event.get("event")
+                session, task = await session_manager.start_turn(
+                    prompt=prompt_text,
+                    conversation_id=req_conv_id,
+                    model=model,
+                    effort=effort,
+                    mode=mode,
+                    cwd=cwd,
+                )
 
-                        if ev_type == "init":
-                            new_conv_id = event.get("conversation_id")
-                            if new_conv_id and new_conv_id != current_conv_id:
-                                # Re-register with new conversation ID
-                                web_channel.unregister_client(websocket, current_conv_id)
-                                current_conv_id = new_conv_id
-                                web_channel.register_client(websocket, current_conv_id)
+                if session.conversation_id != current_conv_id:
+                    web_channel.unregister_client(websocket, current_conv_id)
+                    current_conv_id = session.conversation_id
+                    web_channel.register_client(websocket, current_conv_id)
 
-                            await websocket.send_text(json.dumps({
-                                "type": "init",
-                                "conversation_id": current_conv_id,
-                                "model": model,
-                                "tools": event.get("init", {}).get("tools", []),
-                            }))
-
-                        elif ev_type == "cli_log":
-                            await websocket.send_text(json.dumps({
-                                "type": "cli_log",
-                                "conversation_id": current_conv_id,
-                                "stream": event.get("stream", "stdout"),
-                                "level": event.get("level", "info"),
-                                "message": event.get("message", ""),
-                                "timestamp": event.get("timestamp"),
-                            }))
-
-                        elif ev_type == "agent_response":
-                            await websocket.send_text(json.dumps({
-                                "type": "token",
-                                "conversation_id": current_conv_id,
-                                "delta": event.get("delta", ""),
-                                "state": event.get("state"),
-                                "step_index": event.get("step_index"),
-                                "duration_seconds": event.get("duration_seconds"),
-                                "usage": event.get("usage"),
-                            }))
-
-                        elif ev_type == "tool":
-                            await websocket.send_text(json.dumps({
-                                "type": "tool",
-                                "conversation_id": current_conv_id,
-                                "step_index": event.get("step_index"),
-                                "tool_name": event.get("tool_name"),
-                                "tool_info": event.get("tool_info"),
-                                "summary": event.get("summary"),
-                                "state": event.get("state"),
-                                "duration_seconds": event.get("duration_seconds"),
-                            }))
-
-                        elif ev_type == "result":
-                            res_conv_id = event.get("conversation_id") or current_conv_id
-                            await websocket.send_text(json.dumps({
-                                "type": "result",
-                                "conversation_id": res_conv_id,
-                                "status": event.get("status"),
-                                "response": event.get("response"),
-                                "error": event.get("error"),
-                                "duration_seconds": event.get("duration_seconds"),
-                                "num_turns": event.get("num_turns"),
-                                "usage": event.get("usage"),
-                            }))
-
-                        elif ev_type == "error":
-                            await websocket.send_text(json.dumps({
-                                "type": "error",
-                                "conversation_id": current_conv_id,
-                                "error": event.get("error"),
-                            }))
-
-                        elif ev_type == "warning":
-                            await websocket.send_text(json.dumps({
-                                "type": "warning",
-                                "message": event.get("message"),
-                            }))
-
-                except asyncio.CancelledError:
-                    await websocket.send_text(json.dumps({
-                        "type": "aborted",
-                        "conversation_id": current_conv_id,
-                    }))
-                except Exception as e:
-                    await websocket.send_text(json.dumps({
-                        "type": "error",
-                        "conversation_id": current_conv_id,
-                        "error": str(e)
-                    }))
+                await websocket.send_text(json.dumps({
+                    "type": "prompt_ack",
+                    "conversation_id": current_conv_id,
+                    "status": "running",
+                }))
 
     except WebSocketDisconnect:
         web_channel.unregister_client(websocket, current_conv_id)
     except Exception as e:
         print(f"WebSocket exception: {e}")
+        web_channel.unregister_client(websocket, current_conv_id)
+
+
+@ws_router.websocket("/ws/terminal")
+@ws_router.websocket("/ws/terminal/{conversation_id}")
+async def websocket_terminal_endpoint(websocket: WebSocket, conversation_id: Optional[str] = None):
+    """
+    Dedicated terminal follow WebSocket for resuming and streaming live CLI output per tab.
+    """
+    await websocket.accept()
+    current_conv_id = conversation_id
+    web_channel.register_client(websocket, current_conv_id)
+
+    if current_conv_id:
+        try:
+            state = session_manager.get_session_state(current_conv_id, last_seq=0)
+            await websocket.send_text(json.dumps({
+                "type": "terminal_snapshot",
+                "conversation_id": current_conv_id,
+                "status": state.get("status", "idle"),
+                "is_generating": state.get("is_generating", False),
+                "lines": state.get("terminal_logs", []),
+                "last_seq": state.get("last_seq", 0),
+            }))
+        except Exception as e:
+            print(f"Error sending terminal snapshot: {e}")
+
+    try:
+        while True:
+            raw_text = await websocket.receive_text()
+            if not raw_text:
+                continue
+
+            try:
+                data = json.loads(raw_text)
+            except json.JSONDecodeError:
+                continue
+
+            msg_type = data.get("type", "")
+
+            if msg_type in ("subscribe", "resume", "switch_conversation"):
+                target_conv_id = data.get("conversation_id")
+                last_seq = int(data.get("last_seq", 0))
+
+                if target_conv_id and target_conv_id != current_conv_id:
+                    web_channel.unregister_client(websocket, current_conv_id)
+                    current_conv_id = target_conv_id
+                    web_channel.register_client(websocket, current_conv_id)
+
+                if current_conv_id:
+                    state = session_manager.get_session_state(current_conv_id, last_seq=last_seq)
+                    await websocket.send_text(json.dumps({
+                        "type": "terminal_snapshot",
+                        "conversation_id": current_conv_id,
+                        "status": state.get("status", "idle"),
+                        "is_generating": state.get("is_generating", False),
+                        "lines": state.get("terminal_logs", []),
+                        "last_seq": state.get("last_seq", 0),
+                    }))
+            elif msg_type == "ping":
+                await websocket.send_text(json.dumps({"type": "pong"}))
+
+    except WebSocketDisconnect:
+        web_channel.unregister_client(websocket, current_conv_id)
+    except Exception as e:
+        print(f"Terminal WebSocket exception: {e}")
         web_channel.unregister_client(websocket, current_conv_id)

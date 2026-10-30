@@ -62,6 +62,16 @@ class WebChannel(BaseChannel):
                 del self._connections[conversation_id]
         self._global_listeners.discard(websocket)
 
+    def migrate_clients(self, old_conv_id: str, new_conv_id: str) -> None:
+        """Transfers WebSocket client listeners from old_conv_id to new_conv_id."""
+        if not old_conv_id or not new_conv_id or old_conv_id == new_conv_id:
+            return
+        if old_conv_id in self._connections:
+            conns = self._connections.pop(old_conv_id)
+            if new_conv_id not in self._connections:
+                self._connections[new_conv_id] = set()
+            self._connections[new_conv_id].update(conns)
+
     async def broadcast(self, conversation_id: str, message: Dict[str, Any]) -> None:
         """Sends a JSON message to all connected clients for this conversation."""
         payload = json.dumps(message)

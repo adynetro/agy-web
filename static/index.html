@@ -13,7 +13,7 @@
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=JetBrains+Mono:ital,wght@0,400;0,500;0,600;0,700;1,400&family=Material+Symbols+Outlined:opsz,wght,FILL,GRAD@20..48,100..700,0..1,-50..200&display=swap" rel="stylesheet">
   <link rel="stylesheet" href="/static/vendor/github-dark.min.css">
-  <link rel="stylesheet" href="/static/css/app.css?v=3.7">
+  <link rel="stylesheet" href="/static/css/app.css?v=3.8">
 </head>
 <body>
   <div id="app">
@@ -359,11 +359,12 @@
         <div class="cli-console-header" id="cli-console-header">
           <div class="cli-console-title" id="cli-console-title-bar">
             <span class="cli-terminal-icon">💻</span>
-            <span class="cli-title-text">Follow Terminal</span>
+            <span class="cli-title-text" id="cli-title-text">Follow Terminal</span>
             <span id="cli-live-indicator" class="cli-live-indicator idle">IDLE</span>
             <span id="cli-step-indicator" class="cli-step-indicator" style="display: none;"></span>
           </div>
           <div class="cli-console-actions">
+            <button id="btn-cli-resume" class="btn-console-action" title="Resume / Reconnect terminal stream">🔄 Resume</button>
             <button id="btn-cli-autoscroll" class="btn-console-action active" title="Toggle Auto-Scroll">📜 Scroll: ON</button>
             <button id="btn-cli-copy" class="btn-console-action" title="Copy Console Logs">📋 Copy</button>
             <button id="btn-cli-clear" class="btn-console-action" title="Clear Console">🧹 Clear</button>
@@ -767,6 +768,6 @@
 
   <script src="/static/vendor/marked.min.js"></script>
   <script src="/static/vendor/highlight.min.js"></script>
-  <script src="/static/js/app.js?v=3.7"></script>
+  <script src="/static/js/app.js?v=3.8"></script>
 </body>
 </html>

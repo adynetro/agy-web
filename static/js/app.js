@@ -123,9 +123,11 @@ class AgyApp {
       btnHeaderCli: document.getElementById('btn-header-cli'),
       cliConsoleDrawer: document.getElementById('cli-console-drawer'),
       cliConsoleHeader: document.getElementById('cli-console-header'),
+      cliTitleText: document.getElementById('cli-title-text'),
       cliConsoleBody: document.getElementById('cli-console-body'),
       cliLiveIndicator: document.getElementById('cli-live-indicator'),
       cliStepIndicator: document.getElementById('cli-step-indicator'),
+      btnCliResume: document.getElementById('btn-cli-resume'),
       btnCliToggle: document.getElementById('btn-cli-toggle'),
       btnCliAutoscroll: document.getElementById('btn-cli-autoscroll'),
       btnCliCopy: document.getElementById('btn-cli-copy'),
@@ -167,6 +169,12 @@ class AgyApp {
     this.activeViewingPid = null;
     this.activeSteeringConvId = null;
 
+    // Resilient WebSocket & Terminal Resume State
+    this.reconnectTimer = null;
+    this.reconnectAttempts = 0;
+    this.isWsConnected = false;
+    this.lastTerminalSeq = 0;
+
     this.branding = null;
     this.currentTheme = 'dark';
     this.init();
@@ -186,6 +194,7 @@ class AgyApp {
     await this.fetchQuotaMetrics();
     await this.fetchProcesses();
     this.updateModelTelemetryUI();
+    this.connectWebSocket(this.activeConversationId);
     
     // Auto-poll channels status every 10s
     setInterval(() => this.fetchChannels(), 10000);
@@ -465,9 +474,30 @@ class AgyApp {
     if (this.dom.btnCliCopy) {
       this.dom.btnCliCopy.addEventListener('click', () => this.copyCliConsole());
     }
+    if (this.dom.btnCliResume) {
+      this.dom.btnCliResume.addEventListener('click', () => this.resumeTerminalStream());
+    }
     if (this.dom.btnCliClear) {
       this.dom.btnCliClear.addEventListener('click', () => this.clearCliConsole());
     }
+
+    // Auto-reconnect and resume on network recovery or browser tab visibility
+    window.addEventListener('online', () => {
+      console.log('[Net] Network restored, re-establishing WebSocket...');
+      if (!this.ws || this.ws.readyState !== WebSocket.OPEN) {
+        this.reconnectAttempts = 0;
+        this.connectWebSocket(this.activeConversationId);
+      }
+    });
+
+    document.addEventListener('visibilitychange', () => {
+      if (document.visibilityState === 'visible') {
+        if (!this.ws || this.ws.readyState !== WebSocket.OPEN) {
+          console.log('[Tab] Tab returned to foreground, syncing WebSocket stream...');
+          this.connectWebSocket(this.activeConversationId);
+        }
+      }
+    });
 
     // Usage Panel Tabs (System vs Quota & Tokens vs All)
     if (this.dom.tabBtnSystem && this.dom.tabBtnQuota && this.dom.tabBtnBoth) {
@@ -735,12 +765,19 @@ class AgyApp {
   }
 
   async loadConversation(convId) {
-    if (this.isGenerating) return;
     if (window.innerWidth <= 768) {
       this.closeSidebar();
     }
     this.activeConversationId = convId;
+    this.lastTerminalSeq = 0;
     this.renderConversationList();
+
+    // Prepare terminal drawer for selected tab
+    this.updateTerminalTitle();
+    this.clearCliConsoleLogsOnly();
+    if (this.dom.cliConsoleBody) {
+      this.dom.cliConsoleBody.innerHTML = '<div class="cli-console-welcome">Syncing terminal output for selected session...</div>';
+    }
 
     try {
       const res = await fetch(`/api/conversations/${convId}`);
@@ -748,9 +785,20 @@ class AgyApp {
       const data = await res.json();
       
       this.dom.convTitle.textContent = data.title || 'Conversation';
+      this.updateTerminalTitle(data.title);
       this.messages = data.messages || [];
       this.renderChatMessages();
-      this.connectWebSocket(convId);
+
+      // Synchronize live WebSocket & terminal output for selected tab
+      if (this.ws && this.ws.readyState === WebSocket.OPEN) {
+        this.ws.send(JSON.stringify({
+          type: 'subscribe',
+          conversation_id: convId,
+          last_seq: 0,
+        }));
+      } else {
+        this.connectWebSocket(convId);
+      }
 
       if (data.usage) {
         this.telemetry.inputTokens = data.usage.input_tokens || 0;
@@ -773,13 +821,14 @@ class AgyApp {
   }
 
   startNewChat() {
-    if (this.isGenerating) return;
     if (window.innerWidth <= 768) {
       this.closeSidebar();
     }
     this.activeConversationId = null;
+    this.lastTerminalSeq = 0;
     this.messages = [];
     this.dom.convTitle.textContent = 'New Conversation';
+    this.updateTerminalTitle('New Session');
     this.telemetry.inputTokens = 0;
     this.telemetry.outputTokens = 0;
     this.telemetry.thinkingTokens = 0;
@@ -789,7 +838,19 @@ class AgyApp {
     this.updateModelTelemetryUI();
     this.renderConversationList();
     this.renderChatMessages();
-    this.connectWebSocket(null);
+    this.clearCliConsoleLogsOnly();
+    if (this.dom.cliConsoleBody) {
+      this.dom.cliConsoleBody.innerHTML = '<div class="cli-console-welcome">Google Antigravity CLI output stream ready. Real-time feedback, commands, and stderr will stream here live.</div>';
+    }
+    if (this.ws && this.ws.readyState === WebSocket.OPEN) {
+      this.ws.send(JSON.stringify({
+        type: 'subscribe',
+        conversation_id: null,
+        last_seq: 0,
+      }));
+    } else {
+      this.connectWebSocket(null);
+    }
   }
 
   async deleteConversation(convId, e) {
@@ -812,16 +873,44 @@ class AgyApp {
 
   // --- WebSocket & Turn Execution ---
 
-  connectWebSocket(convId) {
+  connectWebSocket(convId = null) {
     if (this.ws) {
-      try { this.ws.close(); } catch(e) {}
+      try {
+        this.ws.onopen = null;
+        this.ws.onmessage = null;
+        this.ws.onerror = null;
+        this.ws.onclose = null;
+        this.ws.close();
+      } catch(e) {}
     }
 
+    const targetConvId = convId !== undefined ? convId : this.activeConversationId;
     const proto = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
-    const path = convId ? `/ws/chat/${convId}` : '/ws/chat';
+    const path = targetConvId ? `/ws/chat/${targetConvId}` : '/ws/chat';
     const wsUrl = `${proto}//${window.location.host}${path}`;
 
     this.ws = new WebSocket(wsUrl);
+
+    this.ws.onopen = () => {
+      this.isWsConnected = true;
+      this.reconnectAttempts = 0;
+      if (this.reconnectTimer) {
+        clearTimeout(this.reconnectTimer);
+        this.reconnectTimer = null;
+      }
+      this.setTerminalIndicator(this.isGenerating ? 'live' : 'idle', this.isGenerating ? 'LIVE' : 'IDLE');
+
+      // Request synchronization state for currently selected tab
+      if (this.activeConversationId) {
+        try {
+          this.ws.send(JSON.stringify({
+            type: 'subscribe',
+            conversation_id: this.activeConversationId,
+            last_seq: this.lastTerminalSeq || 0,
+          }));
+        } catch (e) {}
+      }
+    };
 
     this.ws.onmessage = (event) => {
       try {
@@ -832,10 +921,65 @@ class AgyApp {
       }
     };
 
-    this.ws.onerror = (err) => console.error('WebSocket error:', err);
-    this.ws.onclose = () => {
-      // Reconnect on new action if needed
+    this.ws.onerror = (err) => {
+      console.warn('WebSocket connection error:', err);
     };
+
+    this.ws.onclose = () => {
+      this.isWsConnected = false;
+      this.setTerminalIndicator('reconnecting', 'RECONNECTING...');
+      this.scheduleReconnect();
+    };
+  }
+
+  scheduleReconnect() {
+    if (this.reconnectTimer) clearTimeout(this.reconnectTimer);
+    const delay = Math.min(1000 * Math.pow(1.5, Math.min(this.reconnectAttempts++, 6)), 8000);
+    this.setTerminalIndicator('reconnecting', `RETRY IN ${Math.round(delay / 1000)}s...`);
+    this.reconnectTimer = setTimeout(() => {
+      console.log(`[WS] Reconnecting... (attempt ${this.reconnectAttempts})`);
+      this.connectWebSocket(this.activeConversationId);
+    }, delay);
+  }
+
+  resumeTerminalStream() {
+    this.reconnectAttempts = 0;
+    if (this.reconnectTimer) {
+      clearTimeout(this.reconnectTimer);
+      this.reconnectTimer = null;
+    }
+    if (this.ws && this.ws.readyState === WebSocket.OPEN) {
+      this.setTerminalIndicator('reconnecting', 'SYNCING...');
+      try {
+        this.ws.send(JSON.stringify({
+          type: 'subscribe',
+          conversation_id: this.activeConversationId,
+          last_seq: 0,
+        }));
+      } catch (e) {
+        this.connectWebSocket(this.activeConversationId);
+      }
+    } else {
+      this.connectWebSocket(this.activeConversationId);
+    }
+  }
+
+  setTerminalIndicator(state, text) {
+    if (!this.dom.cliLiveIndicator) return;
+    this.dom.cliLiveIndicator.className = `cli-live-indicator ${state}`;
+    this.dom.cliLiveIndicator.textContent = text;
+  }
+
+  updateTerminalTitle(title = null) {
+    if (!this.dom.cliTitleText) return;
+    const sessionLabel = title || (this.activeConversationId ? `Session ${this.activeConversationId.slice(0, 8)}` : 'Terminal');
+    this.dom.cliTitleText.textContent = `Follow Terminal • ${sessionLabel}`;
+  }
+
+  clearCliConsoleLogsOnly() {
+    if (this.dom.cliConsoleBody) {
+      this.dom.cliConsoleBody.innerHTML = '';
+    }
   }
 
   sendMessage() {
@@ -883,7 +1027,6 @@ class AgyApp {
 
     if (!this.ws || this.ws.readyState !== WebSocket.OPEN) {
       this.connectWebSocket(this.activeConversationId);
-      // Wait for open
       this.ws.onopen = () => this.sendPromptPayload(prompt);
     } else {
       this.sendPromptPayload(prompt);
@@ -900,11 +1043,82 @@ class AgyApp {
       mode: this.selectedMode,
       cwd: this.selectedCwd,
     };
-    this.ws.send(JSON.stringify(payload));
+    try {
+      this.ws.send(JSON.stringify(payload));
+    } catch (e) {
+      console.warn('Error sending prompt payload:', e);
+    }
   }
 
   handleStreamEvent(data) {
     const type = data.type || data.event;
+
+    if (type === 'session_state') {
+      const convId = data.conversation_id;
+      if (convId && this.activeConversationId && convId !== this.activeConversationId) {
+        return;
+      }
+
+      const isGen = Boolean(data.is_generating || data.status === 'running');
+      this.setGenerating(isGen);
+      if (isGen) {
+        this.startLiveBanner();
+        const snippet = data.prompt ? `"${data.prompt.slice(0, 35)}..."` : 'Turn in progress';
+        this.updateLiveBannerAction(`⚡ Executing: ${snippet}`);
+        this.setTerminalIndicator('live', data.pid ? `LIVE (PID ${data.pid})` : 'LIVE');
+        if (this.dom.btnHeaderCli) {
+          this.dom.btnHeaderCli.classList.add('active');
+        }
+      } else {
+        this.stopLiveBanner();
+        this.setTerminalIndicator('idle', 'IDLE');
+      }
+
+      // Render terminal logs for this selected tab
+      if (Array.isArray(data.terminal_logs)) {
+        if (data.last_seq === 0 || !this.lastTerminalSeq) {
+          this.clearCliConsoleLogsOnly();
+          data.terminal_logs.forEach(log => this.appendCliLog(log));
+        } else {
+          data.terminal_logs.forEach(log => {
+            if (!log.seq || log.seq > this.lastTerminalSeq) {
+              this.appendCliLog(log);
+            }
+          });
+        }
+      }
+
+      if (data.last_seq) {
+        this.lastTerminalSeq = Math.max(this.lastTerminalSeq, data.last_seq);
+      }
+      return;
+    }
+
+    if (type === 'terminal_history') {
+      if (data.conversation_id && this.activeConversationId && data.conversation_id !== this.activeConversationId) {
+        return;
+      }
+      this.clearCliConsoleLogsOnly();
+      if (Array.isArray(data.lines) && data.lines.length > 0) {
+        data.lines.forEach(line => this.appendCliLog(line));
+      } else {
+        if (this.dom.cliConsoleBody) {
+          this.dom.cliConsoleBody.innerHTML = '<div class="cli-console-welcome">No terminal output recorded for this session yet.</div>';
+        }
+      }
+      return;
+    }
+
+    if (type === 'prompt_ack') {
+      if (data.conversation_id && !this.activeConversationId) {
+        this.activeConversationId = data.conversation_id;
+        this.updateTerminalTitle();
+      }
+      this.setGenerating(true);
+      this.startLiveBanner();
+      this.setTerminalIndicator('live', 'LIVE');
+      return;
+    }
 
     if (type === 'btw_ack' || type === 'btw_injected') {
       const steerMsg = data.message || 'Steering hint sent to agent';
@@ -921,15 +1135,33 @@ class AgyApp {
     if (type === 'init') {
       if (data.conversation_id) {
         this.activeConversationId = data.conversation_id;
+        this.updateTerminalTitle();
         this.fetchConversations();
       }
       if (data.model) {
         this.telemetry.modelName = data.model;
         this.updateModelTelemetryUI();
       }
-    } else if (type === 'cli_log') {
+      return;
+    }
+
+    if (type === 'cli_log') {
+      if (data.conversation_id && this.activeConversationId && data.conversation_id !== this.activeConversationId) {
+        return;
+      }
       this.appendCliLog(data);
-    } else if (type === 'token') {
+      if (data.seq) {
+        this.lastTerminalSeq = Math.max(this.lastTerminalSeq, data.seq);
+      }
+      return;
+    }
+
+    // Ignore events for other conversations
+    if (data.conversation_id && this.activeConversationId && data.conversation_id !== this.activeConversationId) {
+      return;
+    }
+
+    if (type === 'token') {
       if (data.usage) {
         this.telemetry.inputTokens = data.usage.input_tokens || this.telemetry.inputTokens;
         this.telemetry.outputTokens = data.usage.output_tokens || this.telemetry.outputTokens;
@@ -1023,6 +1255,7 @@ class AgyApp {
       this.setGenerating(false);
       this.renderChatMessages();
     }
+  }
   }
 
   async abortTurn() {
@@ -1144,8 +1377,11 @@ class AgyApp {
     }
 
     this.conversations.forEach(conv => {
+      const isRunning = (this.isGenerating && conv.id === this.activeConversationId) ||
+        (this.processes || []).some(p => p.conversation_id === conv.id && (p.state === 'R' || p.is_engine_managed));
+
       const item = document.createElement('div');
-      item.className = 'conv-item' + (conv.id === this.activeConversationId ? ' active' : '');
+      item.className = 'conv-item' + (conv.id === this.activeConversationId ? ' active' : '') + (isRunning ? ' running' : '');
       item.onclick = () => this.loadConversation(conv.id);
 
       const content = document.createElement('div');
@@ -1153,7 +1389,11 @@ class AgyApp {
 
       const title = document.createElement('div');
       title.className = 'conv-item-title';
-      title.textContent = conv.title || 'Conversation Session';
+      if (isRunning) {
+        title.innerHTML = `<span class="conv-running-dot" title="Executing in background"></span>${this.escapeHtml(conv.title || 'Conversation Session')}`;
+      } else {
+        title.textContent = conv.title || 'Conversation Session';
+      }
 
       const tagsRow = document.createElement('div');
       tagsRow.className = 'session-tags-row';
@@ -2490,7 +2730,10 @@ class AgyApp {
       if (this.dom.cliConsoleBody) {
         this.dom.cliConsoleBody.scrollTop = this.dom.cliConsoleBody.scrollHeight;
       }
-      if (!this.isGenerating && this.processes && this.processes.length > 0) {
+      const welcome = this.dom.cliConsoleBody ? this.dom.cliConsoleBody.querySelector('.cli-console-welcome') : null;
+      if (welcome || (this.dom.cliConsoleBody && this.dom.cliConsoleBody.children.length === 0)) {
+        this.resumeTerminalStream();
+      } else if (!this.isGenerating && this.processes && this.processes.length > 0) {
         this.followActiveProcessOutput();
       }
     } else {
