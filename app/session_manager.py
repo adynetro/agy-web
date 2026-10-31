@@ -86,6 +86,9 @@ def extract_terminal_history_from_disk(conversation_id: str, limit: int = 150) -
                 preview = content.split("\n")[0][:140]
                 entries.append({
                     "level": "info",
+                    "type": "user_input",
+                    "label": f"Step {step_idx}: User Input",
+                    "content": content,
                     "message": f"[USER] > {preview}",
                     "timestamp": ts,
                     "stream": "stdin"
@@ -101,6 +104,11 @@ def extract_terminal_history_from_disk(conversation_id: str, limit: int = 150) -
                         summary = _format_tool_summary(name, args)
                         entries.append({
                             "level": "exec",
+                            "type": "tool_call",
+                            "label": f"Step {step_idx}: Calling tool {name}",
+                            "tool_calls": [tc],
+                            "summary": summary,
+                            "content": f"{name} › {summary}" if summary else f"Running {name}",
                             "message": f"[STEP {step_idx}] ⚡ Running {name} › {summary}",
                             "timestamp": ts,
                             "stream": "stdout"
@@ -108,6 +116,10 @@ def extract_terminal_history_from_disk(conversation_id: str, limit: int = 150) -
                 elif thinking:
                     entries.append({
                         "level": "step",
+                        "type": "thinking",
+                        "label": f"Step {step_idx}: Agent Thinking",
+                        "thinking": thinking,
+                        "content": thinking[:500] + ("..." if len(thinking) > 500 else ""),
                         "message": f"[STEP {step_idx}] Model thinking ({len(thinking)} chars)",
                         "timestamp": ts,
                         "stream": "stdout"
@@ -119,6 +131,9 @@ def extract_terminal_history_from_disk(conversation_id: str, limit: int = 150) -
                     first_line = content.split("\n")[0].strip()
                     entries.append({
                         "level": "info",
+                        "type": "tool_output" if source == "TOOL" else "info",
+                        "label": f"Step {step_idx}: Tool Output" if source == "TOOL" else f"Step {step_idx}: Output",
+                        "content": content[:800] + ("..." if len(content) > 800 else ""),
                         "message": f"[CLI] {first_line[:140]}",
                         "timestamp": ts,
                         "stream": "stdout"
@@ -130,6 +145,9 @@ def extract_terminal_history_from_disk(conversation_id: str, limit: int = 150) -
                 status = res.get("status", "SUCCESS")
                 entries.append({
                     "level": "result",
+                    "type": "result",
+                    "label": f"Step {step_idx}: Finished",
+                    "content": f"Turn execution completed in {dur:.1f}s ({status})",
                     "message": f"[RESULT] Finished in {dur:.1f}s ({status})",
                     "timestamp": ts,
                     "stream": "stdout"
@@ -176,9 +194,25 @@ class SessionState:
         if ev_type == "cli_log":
             self.terminal_logs.append({
                 "level": event.get("level", "info"),
+                "type": event.get("type", "cli_log"),
+                "label": event.get("label", "Terminal Output"),
+                "content": event.get("content") or event.get("message", ""),
                 "message": event.get("message", ""),
                 "timestamp": event_copy["timestamp"],
                 "stream": event.get("stream", "stdout"),
+                "seq": self.seq,
+            })
+        elif ev_type == "tool":
+            tool_name = event.get("tool_name", "tool")
+            summary = event.get("summary", "")
+            state = event.get("state", "ACTIVE")
+            self.terminal_logs.append({
+                "level": "exec",
+                "type": "tool_call",
+                "label": f"Tool Execution: {tool_name}",
+                "content": f"{tool_name} › {summary}" if summary else f"Running {tool_name} ({state})",
+                "message": f"[STEP {self.seq}] ⚡ {tool_name} › {summary}" if summary else f"[STEP {self.seq}] ⚡ Running {tool_name}",
+                "timestamp": event_copy["timestamp"],
                 "seq": self.seq,
             })
         elif ev_type == "result":
@@ -186,20 +220,30 @@ class SessionState:
             status_str = event.get("status", "SUCCESS")
             self.terminal_logs.append({
                 "level": "result",
+                "type": "result",
+                "label": "Turn Result",
+                "content": f"Finished in {dur:.1f}s ({status_str})",
                 "message": f"[RESULT] Finished in {dur:.1f}s ({status_str})",
                 "timestamp": event_copy["timestamp"],
                 "seq": self.seq,
             })
         elif ev_type == "error":
+            err_msg = event.get('error', 'Unknown execution error')
             self.terminal_logs.append({
                 "level": "error",
-                "message": f"[ERROR] {event.get('error', 'Unknown execution error')}",
+                "type": "error",
+                "label": "Execution Error",
+                "content": err_msg,
+                "message": f"[ERROR] {err_msg}",
                 "timestamp": event_copy["timestamp"],
                 "seq": self.seq,
             })
         elif ev_type in ("aborted", "cancelled"):
             self.terminal_logs.append({
                 "level": "warning",
+                "type": "warning",
+                "label": "Execution Stopped",
+                "content": "Turn was stopped by user",
                 "message": "[ABORTED] Turn was stopped by user",
                 "timestamp": event_copy["timestamp"],
                 "seq": self.seq,

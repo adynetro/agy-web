@@ -13,7 +13,7 @@
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=JetBrains+Mono:ital,wght@0,400;0,500;0,600;0,700;1,400&family=Material+Symbols+Outlined:opsz,wght,FILL,GRAD@20..48,100..700,0..1,-50..200&display=swap" rel="stylesheet">
   <link rel="stylesheet" href="/static/vendor/github-dark.min.css">
-  <link rel="stylesheet" href="/static/css/app.css?v=3.8">
+  <link rel="stylesheet" href="/static/css/app.css?v=4.0">
 </head>
 <body>
   <div id="app">
@@ -303,14 +303,11 @@
             <button type="button" class="deck-chip" data-cmd="/undo" title="Revert last file modification">
               <span class="chip-icon">↩</span> <span class="chip-label">/undo</span>
             </button>
-            <button type="button" class="deck-chip chip-stop" id="deck-chip-stop" data-cmd="/stop" title="Stop current execution">
-              <span class="chip-icon">■</span> <span class="chip-label">/stop</span>
+            <button type="button" class="deck-chip" data-cmd="/goal" title="Autonomous goal execution">
+              <span class="chip-icon">🎯</span> <span class="chip-label">/goal</span>
             </button>
-            <button type="button" class="deck-chip chip-autoapprove active" id="deck-chip-autoapprove" title="Toggle auto-approval of tool permissions">
-              <span class="chip-dot"></span> <span class="chip-label">Auto-Approve</span>
-            </button>
-            <button type="button" class="deck-chip chip-btw" id="deck-chip-btw" title="Steer turn with real-time /btw hint">
-              <span class="chip-icon">⚡</span> <span class="chip-label">/btw</span>
+            <button type="button" class="deck-chip" data-cmd="/plan" title="Plan complex changes step-by-step">
+              <span class="chip-icon">📋</span> <span class="chip-label">/plan</span>
             </button>
           </div>
 
@@ -364,11 +361,26 @@
             <span id="cli-step-indicator" class="cli-step-indicator" style="display: none;"></span>
           </div>
           <div class="cli-console-actions">
-            <button id="btn-cli-resume" class="btn-console-action" title="Resume / Reconnect terminal stream">🔄 Resume</button>
-            <button id="btn-cli-autoscroll" class="btn-console-action active" title="Toggle Auto-Scroll">📜 Scroll: ON</button>
-            <button id="btn-cli-copy" class="btn-console-action" title="Copy Console Logs">📋 Copy</button>
-            <button id="btn-cli-clear" class="btn-console-action" title="Clear Console">🧹 Clear</button>
-            <button id="btn-cli-toggle" class="btn-console-action btn-console-toggle" title="Close Terminal">✕ Close</button>
+            <button id="btn-cli-resume" class="btn-console-action" title="Resume / Reconnect terminal stream" aria-label="Resume stream">
+              <span class="btn-console-icon">🔄</span>
+              <span class="btn-console-label">Resume</span>
+            </button>
+            <button id="btn-cli-autoscroll" class="btn-console-action active" title="Toggle Auto-Scroll" aria-label="Toggle Auto-Scroll">
+              <span class="btn-console-icon">📜</span>
+              <span class="btn-console-label">Scroll: ON</span>
+            </button>
+            <button id="btn-cli-copy" class="btn-console-action" title="Copy Console Logs" aria-label="Copy logs">
+              <span class="btn-console-icon">📋</span>
+              <span class="btn-console-label">Copy</span>
+            </button>
+            <button id="btn-cli-clear" class="btn-console-action" title="Clear Console" aria-label="Clear logs">
+              <span class="btn-console-icon">🧹</span>
+              <span class="btn-console-label">Clear</span>
+            </button>
+            <button id="btn-cli-toggle" class="btn-console-action btn-console-toggle" title="Close Terminal" aria-label="Close terminal">
+              <span class="btn-console-icon">✕</span>
+              <span class="btn-console-label">Close</span>
+            </button>
           </div>
         </div>
         <div id="cli-console-body" class="cli-console-body">
@@ -704,11 +716,17 @@
               <div id="proc-output-subtitle" style="font-size: 12px; color: var(--text-muted); margin-top: 2px;">Streaming live execution logs and tool steps</div>
             </div>
           </div>
-          <div style="display: flex; align-items: center; gap: 8px;">
-            <button id="btn-proc-output-steer" class="btn-secondary btn-steer-action">⚡ Steer /btw</button>
-            <button id="btn-proc-output-attach" class="btn-primary btn-attach-action">🔗 Attach</button>
-            <button id="btn-proc-output-stop" class="btn-secondary btn-stop-action">⏹ Stop</button>
-            <button class="btn-close-modal">&times;</button>
+          <div class="proc-output-header-actions" style="display: flex; align-items: center; gap: 8px;">
+            <button id="btn-proc-output-steer" class="btn-secondary btn-steer-action" title="Steer model with /btw">
+              <span>⚡</span> <span class="btn-proc-header-label">Steer /btw</span>
+            </button>
+            <button id="btn-proc-output-attach" class="btn-primary btn-attach-action" title="Attach to this session">
+              <span>🔗</span> <span class="btn-proc-header-label">Attach</span>
+            </button>
+            <button id="btn-proc-output-stop" class="btn-secondary btn-stop-action" title="Stop process">
+              <span>⏹</span> <span class="btn-proc-header-label">Stop</span>
+            </button>
+            <button class="btn-close-modal" aria-label="Close">&times;</button>
           </div>
         </div>
         <div class="modal-body proc-output-modal-body">
@@ -768,6 +786,6 @@
 
   <script src="/static/vendor/marked.min.js"></script>
   <script src="/static/vendor/highlight.min.js"></script>
-  <script src="/static/js/app.js?v=3.8"></script>
+  <script src="/static/js/app.js?v=4.0"></script>
 </body>
 </html>

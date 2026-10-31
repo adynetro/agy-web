@@ -332,6 +332,12 @@ class AgyApp {
         } else if (cmd === '/undo') {
           this.dom.promptInput.value = 'Revert the last file edits made in this workspace';
           this.sendMessage();
+        } else if (cmd === '/goal') {
+          this.dom.promptInput.value = '/goal ';
+          this.dom.promptInput.focus();
+        } else if (cmd === '/plan') {
+          this.dom.promptInput.value = '/plan ';
+          this.dom.promptInput.focus();
         } else if (cmd === '/stop') {
           this.abortTurn();
         }
@@ -2768,11 +2774,148 @@ class AgyApp {
     const text = this.dom.cliConsoleBody.innerText;
     navigator.clipboard.writeText(text).then(() => {
       if (this.dom.btnCliCopy) {
-        const orig = this.dom.btnCliCopy.textContent;
-        this.dom.btnCliCopy.textContent = '✔ Copied!';
-        setTimeout(() => this.dom.btnCliCopy.textContent = orig, 1800);
+        const labelEl = this.dom.btnCliCopy.querySelector('.btn-console-label');
+        if (labelEl) {
+          const orig = labelEl.textContent;
+          labelEl.textContent = 'Copied!';
+          setTimeout(() => labelEl.textContent = orig, 1800);
+        } else {
+          const orig = this.dom.btnCliCopy.textContent;
+          this.dom.btnCliCopy.textContent = '✔ Copied!';
+          setTimeout(() => this.dom.btnCliCopy.textContent = orig, 1800);
+        }
       }
     });
+  }
+
+  createStepCardElement(data) {
+    if (!data) return document.createElement('div');
+
+    const card = document.createElement('div');
+
+    // Extract fields
+    let stepType = (data.type || '').toLowerCase();
+    let level = (data.level || 'info').toLowerCase();
+    let message = data.message || '';
+    let content = data.content || '';
+    let toolCalls = data.tool_calls || [];
+    let thinking = data.thinking || '';
+    let label = data.label || '';
+    let timestamp = data.timestamp;
+
+    // Detect category if not explicitly set
+    let category = 'info';
+    let icon = '💻';
+    let defaultLabel = 'Terminal Log';
+
+    if (stepType === 'user_input' || message.startsWith('[USER]') || level === 'stdin') {
+      category = 'user-input';
+      icon = '👤';
+      defaultLabel = 'User Input';
+      if (!content && message) {
+        content = message.replace(/^\[USER\]\s*>\s*/, '');
+      }
+    } else if (stepType === 'tool_call' || stepType.includes('tool') || toolCalls.length > 0 || level === 'exec' || message.includes('⚡ Running') || message.startsWith('[TOOL]') || message.includes('Calling tool')) {
+      category = 'tool-call';
+      icon = '⚡';
+      defaultLabel = 'Tool Execution';
+      if (!content && message) {
+        content = message;
+      }
+    } else if (stepType === 'thinking' || thinking || level === 'step' || message.includes('Model thinking')) {
+      category = 'thinking';
+      icon = '💭';
+      defaultLabel = 'Agent Thinking';
+      if (!content && thinking) {
+        content = thinking;
+      } else if (!content && message) {
+        content = message;
+      }
+    } else if (stepType === 'result' || level === 'result' || message.startsWith('[RESULT]')) {
+      category = 'result';
+      icon = '✔';
+      defaultLabel = 'Execution Result';
+      if (!content && message) {
+        content = message.replace(/^\[RESULT\]\s*/, '');
+      }
+    } else if (stepType === 'warning' || level === 'warn' || level === 'warning' || message.startsWith('[STEER') || message.startsWith('[ABORTED]')) {
+      category = 'warning';
+      icon = message.startsWith('[STEER') ? '⚡' : '⚠️';
+      defaultLabel = message.startsWith('[STEER') ? 'Steering Guidance (/btw)' : 'Notice';
+      if (!content && message) {
+        content = message;
+      }
+    } else if (stepType === 'error' || level === 'error' || message.startsWith('[ERROR]')) {
+      category = 'error';
+      icon = '✕';
+      defaultLabel = 'Execution Error';
+      if (!content && message) {
+        content = message.replace(/^\[ERROR\]\s*/, '');
+      }
+    } else {
+      category = 'info';
+      icon = '💻';
+      defaultLabel = 'System Log';
+      if (!content && message) {
+        content = message;
+      }
+    }
+
+    card.className = `proc-output-step ${category}`;
+
+    // Format timestamp
+    let timeStr = '';
+    if (timestamp) {
+      const dt = typeof timestamp === 'number' 
+        ? (timestamp > 1e11 ? new Date(timestamp) : new Date(timestamp * 1000))
+        : new Date(timestamp);
+      if (!isNaN(dt.getTime())) {
+        timeStr = dt.toLocaleTimeString();
+      }
+    }
+    if (!timeStr) {
+      timeStr = new Date().toLocaleTimeString();
+    }
+
+    // Step Header
+    const headerDiv = document.createElement('div');
+    headerDiv.className = 'proc-step-header';
+    const displayLabel = label || defaultLabel;
+    headerDiv.innerHTML = `
+      <div class="proc-step-title-group">
+        <span class="proc-step-icon">${icon}</span>
+        <span class="proc-step-title">${this.escapeHtml(displayLabel)}</span>
+      </div>
+      <span class="proc-step-time">${timeStr}</span>
+    `;
+
+    // Step Content
+    const contentDiv = document.createElement('div');
+    contentDiv.className = 'proc-step-content';
+
+    if (toolCalls && toolCalls.length > 0) {
+      const tcFormatted = toolCalls.map(tc => {
+        const name = tc.name || 'tool';
+        const argsStr = tc.args ? JSON.stringify(tc.args, null, 2) : '';
+        if (argsStr && argsStr !== '{}') {
+          return `${name}(\n${argsStr.split('\n').map(l => '  ' + l).join('\n')}\n)`;
+        }
+        return `${name}()`;
+      }).join('\n\n');
+      contentDiv.textContent = tcFormatted;
+    } else if (content) {
+      contentDiv.textContent = content;
+    } else if (message) {
+      contentDiv.textContent = message;
+    } else if (thinking) {
+      contentDiv.textContent = `[Thinking]: ${thinking}`;
+    } else {
+      contentDiv.textContent = '(empty output)';
+    }
+
+    card.appendChild(headerDiv);
+    card.appendChild(contentDiv);
+    return card;
   }
 
   appendCliLog(data) {
@@ -2781,24 +2924,8 @@ class AgyApp {
     const welcome = this.dom.cliConsoleBody.querySelector('.cli-console-welcome');
     if (welcome) welcome.remove();
 
-    const lineEl = document.createElement('div');
-    const level = data.level || 'info';
-    lineEl.className = `cli-log-line ${level}`;
-
-    const now = data.timestamp ? new Date(data.timestamp * 1000) : new Date();
-    const timeStr = now.toTimeString().split(' ')[0];
-
-    const timeEl = document.createElement('span');
-    timeEl.className = 'cli-log-time';
-    timeEl.textContent = timeStr;
-
-    const textEl = document.createElement('span');
-    textEl.className = 'cli-log-text';
-    textEl.textContent = data.message || '';
-
-    lineEl.appendChild(timeEl);
-    lineEl.appendChild(textEl);
-    this.dom.cliConsoleBody.appendChild(lineEl);
+    const card = this.createStepCardElement(data);
+    this.dom.cliConsoleBody.appendChild(card);
 
     if (this.autoScrollConsole) {
       this.dom.cliConsoleBody.scrollTop = this.dom.cliConsoleBody.scrollHeight;
@@ -3219,40 +3346,8 @@ class AgyApp {
     }
 
     lines.forEach(l => {
-      const stepDiv = document.createElement('div');
-      const stepType = (l.type || 'info').toLowerCase();
-      let extraClass = '';
-      if (stepType === 'user_input') extraClass = 'user-input';
-      else if (stepType.includes('tool') || l.tool_calls) extraClass = 'tool-call';
-      else if (stepType === 'warning') extraClass = 'warning';
-      else if (stepType === 'error') extraClass = 'error';
-
-      stepDiv.className = `proc-output-step ${extraClass}`;
-
-      const headerDiv = document.createElement('div');
-      headerDiv.className = 'proc-step-header';
-      headerDiv.innerHTML = `
-        <span>${this.escapeHtml(l.label || l.type || 'STEP')}</span>
-        <span>${l.timestamp ? new Date(l.timestamp).toLocaleTimeString() : ''}</span>
-      `;
-
-      const contentDiv = document.createElement('div');
-      contentDiv.className = 'proc-step-content';
-
-      if (l.content) {
-        contentDiv.textContent = l.content;
-      } else if (l.message) {
-        contentDiv.textContent = l.message;
-      } else if (l.tool_calls && l.tool_calls.length > 0) {
-        const tcText = l.tool_calls.map(tc => `${tc.name}(${JSON.stringify(tc.args || {})})`).join('\n');
-        contentDiv.textContent = tcText;
-      } else if (l.thinking) {
-        contentDiv.textContent = `[Thinking]: ${l.thinking}`;
-      }
-
-      stepDiv.appendChild(headerDiv);
-      stepDiv.appendChild(contentDiv);
-      this.dom.procOutputTerminal.appendChild(stepDiv);
+      const card = this.createStepCardElement(l);
+      this.dom.procOutputTerminal.appendChild(card);
     });
 
     this.dom.procOutputTerminal.scrollTop = this.dom.procOutputTerminal.scrollHeight;
