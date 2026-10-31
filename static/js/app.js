@@ -1262,7 +1262,6 @@ class AgyApp {
       this.renderChatMessages();
     }
   }
-  }
 
   async abortTurn() {
     this.stopLiveBanner();
