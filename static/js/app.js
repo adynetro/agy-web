@@ -649,8 +649,58 @@ class AgyApp {
       });
     });
 
-    // Discord save button
-    document.getElementById('btn-save-discord').addEventListener('click', () => this.saveDiscordConfig());
+    // Channel save buttons
+    document.getElementById('btn-save-discord')?.addEventListener('click', () => this.saveDiscordConfig());
+    document.getElementById('btn-save-telegram')?.addEventListener('click', () => this.saveTelegramConfig());
+    document.getElementById('btn-save-whatsapp')?.addEventListener('click', () => this.saveWhatsAppConfig());
+    document.getElementById('btn-save-imessage')?.addEventListener('click', () => this.saveiMessageConfig());
+
+    // Channel Subtab switching
+    document.querySelectorAll('.channel-sub-btn').forEach(btn => {
+      btn.addEventListener('click', (e) => {
+        const subtab = e.currentTarget.dataset.subtab || '';
+        this.switchChannelSubTab(subtab.replace('channel-', ''));
+      });
+    });
+
+    document.querySelectorAll('.channel-summary-card').forEach(card => {
+      card.addEventListener('click', (e) => {
+        const target = e.currentTarget.dataset.channelTarget || '';
+        this.switchChannelSubTab(target);
+      });
+    });
+
+    // WhatsApp mode selector
+    document.getElementById('whatsapp-mode-select')?.addEventListener('change', (e) => {
+      const isCloud = e.target.value === 'cloud_api';
+      const cloudSec = document.getElementById('whatsapp-cloud-section');
+      const gwSec = document.getElementById('whatsapp-gateway-section');
+      if (cloudSec) cloudSec.style.display = isCloud ? 'block' : 'none';
+      if (gwSec) gwSec.style.display = isCloud ? 'none' : 'block';
+    });
+
+    // Webhook Copy buttons
+    const bindCopyBtn = (btnId, inputId) => {
+      const btn = document.getElementById(btnId);
+      const input = document.getElementById(inputId);
+      if (btn && input) {
+        btn.addEventListener('click', async () => {
+          try {
+            await navigator.clipboard.writeText(input.value);
+            const orig = btn.textContent;
+            btn.textContent = '✓ Copied!';
+            setTimeout(() => { btn.textContent = orig; }, 1800);
+          } catch (e) {
+            input.select();
+            document.execCommand('copy');
+          }
+        });
+      }
+    };
+    bindCopyBtn('btn-copy-wa-webhook', 'whatsapp-webhook-url-display');
+    bindCopyBtn('btn-copy-im-webhook', 'imessage-webhook-url-display');
+    bindCopyBtn('btn-copy-webhook-url', 'webhook-trigger-url-display');
+
     // Settings save button
     document.getElementById('btn-save-settings').addEventListener('click', () => this.saveSettings());
 
@@ -758,26 +808,71 @@ class AgyApp {
     try {
       const res = await fetch('/api/channels');
       this.channels = await res.json();
-      
+
       const discord = this.channels.find(c => c.id === 'discord');
-      if (discord) {
-        if (this.dom.discordStatusText) {
-          if (discord.status === 'online' && discord.bot_user) {
-            this.dom.discordStatusText.textContent = `Discord: @${discord.bot_user}`;
-          } else {
-            this.dom.discordStatusText.textContent = `Discord: ${discord.status.toUpperCase()}`;
-          }
+      const telegram = this.channels.find(c => c.id === 'telegram');
+      const whatsapp = this.channels.find(c => c.id === 'whatsapp');
+      const imessage = this.channels.find(c => c.id === 'imessage');
+      const webhook = this.channels.find(c => c.id === 'webhook');
+
+      // Update overview cards
+      this.updateChannelCard('discord', discord);
+      this.updateChannelCard('telegram', telegram);
+      this.updateChannelCard('whatsapp', whatsapp);
+      this.updateChannelCard('imessage', imessage);
+      this.updateChannelCard('webhook', webhook);
+
+      // Multi-channel sidebar status indicator
+      const activeChannels = this.channels.filter(c => c.id !== 'web' && (c.status === 'online' || c.status === 'ready'));
+      const onlineChannels = this.channels.filter(c => c.id !== 'web' && c.status === 'online');
+
+      if (this.dom.discordStatusText) {
+        if (onlineChannels.length > 0) {
+          const names = onlineChannels.map(c => c.name.replace(' Bot', '')).join(', ');
+          this.dom.discordStatusText.textContent = `Channels: ${onlineChannels.length} Online`;
+          this.dom.discordStatusText.title = `Online: ${names}`;
+        } else if (activeChannels.length > 0) {
+          this.dom.discordStatusText.textContent = 'Channels: Ready';
+          this.dom.discordStatusText.title = 'Configured channels in standby';
+        } else {
+          this.dom.discordStatusText.textContent = 'Channels: Standby';
+          this.dom.discordStatusText.title = 'No external channels currently connected';
         }
-        if (this.dom.discordIndicator) {
-          this.dom.discordIndicator.className = `status-indicator ${discord.status}`;
-        }
-        const settingsDot = document.getElementById('settings-discord-dot');
-        if (settingsDot) {
-          settingsDot.className = `status-indicator ${discord.status}`;
-        }
+      }
+      if (this.dom.discordIndicator) {
+        this.dom.discordIndicator.className = `status-indicator ${onlineChannels.length > 0 ? 'online' : (activeChannels.length > 0 ? 'connecting' : 'offline')}`;
+      }
+      const settingsDot = document.getElementById('settings-discord-dot');
+      if (settingsDot) {
+        settingsDot.className = `status-indicator ${onlineChannels.length > 0 ? 'online' : (activeChannels.length > 0 ? 'connecting' : 'offline')}`;
       }
     } catch (e) {
       console.error('Failed to fetch channels:', e);
+    }
+  }
+
+  updateChannelCard(channelId, data) {
+    const dot = document.getElementById(`sum-dot-${channelId}`);
+    const sub = document.getElementById(`sum-sub-${channelId}`);
+    if (!dot || !sub) return;
+
+    if (!data) {
+      dot.className = 'status-indicator offline';
+      sub.textContent = 'Unavailable';
+      return;
+    }
+
+    dot.className = `status-indicator ${data.status || 'offline'}`;
+    if (channelId === 'discord') {
+      sub.textContent = data.bot_user ? `@${data.bot_user}` : (data.status ? data.status.toUpperCase() : 'Offline');
+    } else if (channelId === 'telegram') {
+      sub.textContent = data.bot_user ? `@${data.bot_user}` : (data.status ? data.status.toUpperCase() : 'Offline');
+    } else if (channelId === 'whatsapp') {
+      sub.textContent = data.status === 'online' ? (data.mode === 'cloud_api' ? 'Cloud API' : 'Gateway') : (data.status ? data.status.toUpperCase() : 'Offline');
+    } else if (channelId === 'imessage') {
+      sub.textContent = data.status === 'online' ? 'BlueBubbles' : (data.status ? data.status.toUpperCase() : 'Offline');
+    } else if (channelId === 'webhook') {
+      sub.textContent = 'Active';
     }
   }
 
@@ -2088,6 +2183,8 @@ class AgyApp {
       this.loadSystemInfoForm();
     } else if (tabId === 'tab-branding') {
       this.loadBrandingForm();
+    } else if (tabId === 'tab-discord') {
+      this.loadChannelsForm();
     }
   }
 
@@ -2099,7 +2196,7 @@ class AgyApp {
     }
     await Promise.all([
       this.loadSettingsForm(),
-      this.loadDiscordForm(),
+      this.loadChannelsForm(),
       this.loadBrandingForm(),
       this.loadSystemInfoForm()
     ]);
@@ -2133,49 +2230,205 @@ class AgyApp {
     }
   }
 
-  async loadDiscordForm() {
+  switchChannelSubTab(channelKey) {
+    document.querySelectorAll('.channel-sub-btn').forEach(btn => {
+      btn.classList.toggle('active', btn.dataset.subtab === `channel-${channelKey}`);
+    });
+    document.querySelectorAll('.channel-summary-card').forEach(card => {
+      card.classList.toggle('active', card.dataset.channelTarget === channelKey);
+    });
+    document.querySelectorAll('.channel-sub-content').forEach(sec => {
+      sec.classList.toggle('active', sec.id === `subtab-channel-${channelKey}`);
+    });
+  }
+
+  async loadChannelsForm() {
     try {
-      const res = await fetch('/api/settings');
-      const s = await res.json();
-      const elToggle = document.getElementById('discord-enable-toggle');
-      const elToken = document.getElementById('discord-token-input');
-      const elPrefix = document.getElementById('discord-prefix-input');
-      const elChannels = document.getElementById('discord-channels-input');
-      const elAutothread = document.getElementById('discord-autothread-toggle');
-
-      if (elToggle) elToggle.checked = !!s.discord_enabled;
-      if (elToken) {
-        elToken.placeholder = s.discord_bot_token_set ? `Configured (${s.discord_bot_token_masked})` : 'Enter Discord Bot Token';
-        elToken.value = '';
-      }
-      if (elPrefix) elPrefix.value = s.discord_prefix || '!agy';
-      if (elChannels) elChannels.value = (s.discord_allowed_channels || []).join(', ');
-      if (elAutothread) elAutothread.checked = !!s.discord_auto_thread;
-
-      // Status card
-      const chRes = await fetch('/api/channels');
+      const [settingsRes, chRes] = await Promise.all([
+        fetch('/api/settings'),
+        fetch('/api/channels')
+      ]);
+      const s = await settingsRes.json();
       const channels = await chRes.json();
-      const discord = channels.find(c => c.id === 'discord');
-      const statusBox = document.getElementById('discord-live-status');
-      if (discord && statusBox) {
-        statusBox.innerHTML = `
-          <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:8px;">
-            <div>
-              <span class="status-indicator ${discord.status}"></span>
-              <strong>Discord Bot:</strong> <span style="text-transform:uppercase; font-weight:700;">${discord.status}</span>
-            </div>
-            ${discord.status === 'online' ? '<span class="brand-badge" style="background:rgba(0,185,92,0.15); color:var(--success);">ACTIVE</span>' : '<span class="brand-badge" style="background:rgba(252,65,61,0.15); color:var(--danger);">STOPPED</span>'}
-          </div>
-          <div style="font-size:13px; line-height:1.6; color:var(--text-secondary);">
-            <strong>Bot User:</strong> ${discord.bot_user ? '@' + discord.bot_user : 'None'}<br>
-            <strong>Connected Servers:</strong> ${discord.guilds || 0}<br>
-            <strong>Tracked Threads:</strong> ${discord.tracked_threads || 0}
-            ${discord.last_error ? `<br><span style="color:var(--danger)"><strong>Error:</strong> ${this.escapeHtml(discord.last_error)}</span>` : ''}
-          </div>
-        `;
-      }
+
+      // Populate Webhook URLs with current origin
+      const origin = window.location.origin;
+      const elWaWebhook = document.getElementById('whatsapp-webhook-url-display');
+      if (elWaWebhook) elWaWebhook.value = `${origin}/api/channels/whatsapp/webhook`;
+
+      const elImWebhook = document.getElementById('imessage-webhook-url-display');
+      if (elImWebhook) elImWebhook.value = `${origin}/api/channels/imessage/webhook`;
+
+      const elTrigger = document.getElementById('webhook-trigger-url-display');
+      if (elTrigger) elTrigger.value = `${origin}/api/channels/webhook/trigger`;
+
+      this.populateDiscordForm(s, channels.find(c => c.id === 'discord'));
+      this.populateTelegramForm(s, channels.find(c => c.id === 'telegram'));
+      this.populateWhatsAppForm(s, channels.find(c => c.id === 'whatsapp'));
+      this.populateiMessageForm(s, channels.find(c => c.id === 'imessage'));
     } catch (e) {
-      console.error('Failed to load discord info:', e);
+      console.error('Failed to load channels info:', e);
+    }
+  }
+
+  populateDiscordForm(s, discord) {
+    const elToggle = document.getElementById('discord-enable-toggle');
+    const elToken = document.getElementById('discord-token-input');
+    const elPrefix = document.getElementById('discord-prefix-input');
+    const elChannels = document.getElementById('discord-channels-input');
+    const elAutothread = document.getElementById('discord-autothread-toggle');
+    const elTools = document.getElementById('discord-tools-toggle');
+
+    if (elToggle) elToggle.checked = !!s.discord_enabled;
+    if (elToken) {
+      elToken.placeholder = s.discord_bot_token_set ? `Configured (${s.discord_bot_token_masked})` : 'Enter Discord Bot Token';
+      elToken.value = '';
+    }
+    if (elPrefix) elPrefix.value = s.discord_prefix || '!agy';
+    if (elChannels) elChannels.value = (s.discord_allowed_channels || []).join(', ');
+    if (elAutothread) elAutothread.checked = !!s.discord_auto_thread;
+    if (elTools) elTools.checked = s.discord_show_tools !== false;
+
+    const statusBox = document.getElementById('discord-live-status');
+    if (discord && statusBox) {
+      statusBox.innerHTML = `
+        <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:8px;">
+          <div>
+            <span class="status-indicator ${discord.status}"></span>
+            <strong>Discord Bot:</strong> <span style="text-transform:uppercase; font-weight:700;">${discord.status}</span>
+          </div>
+          ${discord.status === 'online' ? '<span class="brand-badge" style="background:rgba(0,185,92,0.15); color:var(--success);">ACTIVE</span>' : '<span class="brand-badge" style="background:rgba(252,65,61,0.15); color:var(--danger);">STOPPED</span>'}
+        </div>
+        <div style="font-size:13px; line-height:1.6; color:var(--text-secondary);">
+          <strong>Bot User:</strong> ${discord.bot_user ? '@' + discord.bot_user : 'None'}<br>
+          <strong>Connected Servers:</strong> ${discord.guilds || 0}<br>
+          <strong>Tracked Threads:</strong> ${discord.tracked_threads || 0}
+          ${discord.last_error ? `<br><span style="color:var(--danger)"><strong>Error:</strong> ${this.escapeHtml(discord.last_error)}</span>` : ''}
+        </div>
+      `;
+    }
+  }
+
+  populateTelegramForm(s, telegram) {
+    const elToggle = document.getElementById('telegram-enable-toggle');
+    const elToken = document.getElementById('telegram-token-input');
+    const elUsers = document.getElementById('telegram-users-input');
+    const elTools = document.getElementById('telegram-tools-toggle');
+
+    if (elToggle) elToggle.checked = !!s.telegram_enabled;
+    if (elToken) {
+      elToken.placeholder = s.telegram_bot_token_set ? `Configured (${s.telegram_bot_token_masked})` : 'e.g. 123456789:ABCdefGhIJKlmNoPQRsTUVwxyZ';
+      elToken.value = '';
+    }
+    if (elUsers) elUsers.value = (s.telegram_allowed_users || []).join(', ');
+    if (elTools) elTools.checked = s.telegram_show_tools !== false;
+
+    const statusBox = document.getElementById('telegram-live-status');
+    if (telegram && statusBox) {
+      statusBox.innerHTML = `
+        <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:8px;">
+          <div>
+            <span class="status-indicator ${telegram.status}"></span>
+            <strong>Telegram Bot:</strong> <span style="text-transform:uppercase; font-weight:700;">${telegram.status}</span>
+          </div>
+          ${telegram.status === 'online' ? '<span class="brand-badge" style="background:rgba(0,185,92,0.15); color:var(--success);">ACTIVE</span>' : '<span class="brand-badge" style="background:rgba(252,65,61,0.15); color:var(--danger);">STOPPED</span>'}
+        </div>
+        <div style="font-size:13px; line-height:1.6; color:var(--text-secondary);">
+          <strong>Bot User:</strong> ${telegram.bot_user ? '@' + telegram.bot_user : 'None'}<br>
+          <strong>Connection:</strong> HTTPS Long-Polling (Sub-50ms)<br>
+          <strong>Tracked Chats:</strong> ${telegram.tracked_chats || 0}
+          ${telegram.last_error ? `<br><span style="color:var(--danger)"><strong>Error:</strong> ${this.escapeHtml(telegram.last_error)}</span>` : ''}
+        </div>
+      `;
+    }
+  }
+
+  populateWhatsAppForm(s, whatsapp) {
+    const elToggle = document.getElementById('whatsapp-enable-toggle');
+    const elMode = document.getElementById('whatsapp-mode-select');
+    const elPhoneId = document.getElementById('whatsapp-phone-id-input');
+    const elToken = document.getElementById('whatsapp-token-input');
+    const elVerifyToken = document.getElementById('whatsapp-verify-token-input');
+    const elGatewayUrl = document.getElementById('whatsapp-gateway-url-input');
+    const elGatewayToken = document.getElementById('whatsapp-gateway-token-input');
+    const elNumbers = document.getElementById('whatsapp-numbers-input');
+    const elTools = document.getElementById('whatsapp-tools-toggle');
+
+    if (elToggle) elToggle.checked = !!s.whatsapp_enabled;
+    const mode = s.whatsapp_mode || 'cloud_api';
+    if (elMode) elMode.value = mode;
+
+    const cloudSec = document.getElementById('whatsapp-cloud-section');
+    const gwSec = document.getElementById('whatsapp-gateway-section');
+    if (cloudSec) cloudSec.style.display = mode === 'cloud_api' ? 'block' : 'none';
+    if (gwSec) gwSec.style.display = mode === 'gateway' ? 'block' : 'none';
+
+    if (elPhoneId) elPhoneId.value = s.whatsapp_phone_number_id || '';
+    if (elToken) {
+      elToken.placeholder = s.whatsapp_access_token_set ? `Configured (${s.whatsapp_access_token_masked})` : 'Enter Meta Access Token';
+      elToken.value = '';
+    }
+    if (elVerifyToken) elVerifyToken.value = s.whatsapp_verify_token || 'agy-verify-secret';
+
+    if (elGatewayUrl) elGatewayUrl.value = s.whatsapp_gateway_url || '';
+    if (elGatewayToken) {
+      elGatewayToken.placeholder = s.whatsapp_gateway_token_set ? `Configured (${s.whatsapp_gateway_token_masked})` : 'Enter Gateway API Key';
+      elGatewayToken.value = '';
+    }
+    if (elNumbers) elNumbers.value = (s.whatsapp_allowed_numbers || []).join(', ');
+    if (elTools) elTools.checked = !!s.whatsapp_show_tools;
+
+    const statusBox = document.getElementById('whatsapp-live-status');
+    if (whatsapp && statusBox) {
+      statusBox.innerHTML = `
+        <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:8px;">
+          <div>
+            <span class="status-indicator ${whatsapp.status}"></span>
+            <strong>WhatsApp:</strong> <span style="text-transform:uppercase; font-weight:700;">${whatsapp.status}</span>
+          </div>
+          ${whatsapp.status === 'online' ? '<span class="brand-badge" style="background:rgba(0,185,92,0.15); color:var(--success);">ACTIVE</span>' : (whatsapp.configured ? '<span class="brand-badge" style="background:rgba(49,134,255,0.15); color:var(--accent-primary);">READY</span>' : '<span class="brand-badge" style="background:rgba(252,65,61,0.15); color:var(--danger);">STOPPED</span>')}
+        </div>
+        <div style="font-size:13px; line-height:1.6; color:var(--text-secondary);">
+          <strong>Mode:</strong> ${whatsapp.mode === 'cloud_api' ? 'Meta Cloud API' : 'Gateway Bridge'}<br>
+          <strong>Tracked Contacts:</strong> ${whatsapp.tracked_contacts || 0}
+          ${whatsapp.last_error ? `<br><span style="color:var(--danger)"><strong>Error:</strong> ${this.escapeHtml(whatsapp.last_error)}</span>` : ''}
+        </div>
+      `;
+    }
+  }
+
+  populateiMessageForm(s, imessage) {
+    const elToggle = document.getElementById('imessage-enable-toggle');
+    const elServerUrl = document.getElementById('imessage-server-url-input');
+    const elPassword = document.getElementById('imessage-password-input');
+    const elSenders = document.getElementById('imessage-senders-input');
+    const elTools = document.getElementById('imessage-tools-toggle');
+
+    if (elToggle) elToggle.checked = !!s.imessage_enabled;
+    if (elServerUrl) elServerUrl.value = s.imessage_server_url || '';
+    if (elPassword) {
+      elPassword.placeholder = s.imessage_password_set ? `Configured (${s.imessage_password_masked})` : 'Enter BlueBubbles Password';
+      elPassword.value = '';
+    }
+    if (elSenders) elSenders.value = (s.imessage_allowed_senders || []).join(', ');
+    if (elTools) elTools.checked = !!s.imessage_show_tools;
+
+    const statusBox = document.getElementById('imessage-live-status');
+    if (imessage && statusBox) {
+      statusBox.innerHTML = `
+        <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:8px;">
+          <div>
+            <span class="status-indicator ${imessage.status}"></span>
+            <strong>Apple iMessage:</strong> <span style="text-transform:uppercase; font-weight:700;">${imessage.status}</span>
+          </div>
+          ${imessage.status === 'online' ? '<span class="brand-badge" style="background:rgba(0,185,92,0.15); color:var(--success);">CONNECTED</span>' : (imessage.configured ? '<span class="brand-badge" style="background:rgba(49,134,255,0.15); color:var(--accent-primary);">READY</span>' : '<span class="brand-badge" style="background:rgba(252,65,61,0.15); color:var(--danger);">STOPPED</span>')}
+        </div>
+        <div style="font-size:13px; line-height:1.6; color:var(--text-secondary);">
+          <strong>Server URL:</strong> ${imessage.server_url || 'Not configured'}<br>
+          <strong>Tracked Chats:</strong> ${imessage.tracked_chats || 0}
+          ${imessage.last_error ? `<br><span style="color:var(--danger)"><strong>Error:</strong> ${this.escapeHtml(imessage.last_error)}</span>` : ''}
+        </div>
+      `;
     }
   }
 
@@ -2214,12 +2467,14 @@ class AgyApp {
     const elPrefix = document.getElementById('discord-prefix-input');
     const elChannels = document.getElementById('discord-channels-input');
     const elAutothread = document.getElementById('discord-autothread-toggle');
+    const elTools = document.getElementById('discord-tools-toggle');
 
     const enabled = elToggle ? elToggle.checked : false;
     const token = elToken ? elToken.value.trim() : '';
     const prefix = elPrefix ? elPrefix.value.trim() : '';
     const channelsStr = elChannels ? elChannels.value.trim() : '';
     const autoThread = elAutothread ? elAutothread.checked : false;
+    const showTools = elTools ? elTools.checked : true;
 
     const allowed_channels = channelsStr ? channelsStr.split(',').map(s => s.trim()).filter(Boolean) : [];
 
@@ -2228,6 +2483,7 @@ class AgyApp {
       prefix: prefix || '!agy',
       allowed_channels,
       auto_thread: autoThread,
+      show_tools: showTools,
     };
     if (token) payload.token = token;
 
@@ -2239,11 +2495,137 @@ class AgyApp {
       });
       if (res.ok) {
         alert('Discord configuration updated successfully!');
-        if (this.dom.modalSettings) this.dom.modalSettings.style.display = 'none';
         this.fetchChannels();
+        this.loadChannelsForm();
       }
     } catch (e) {
       alert('Error updating Discord config: ' + e);
+    }
+  }
+
+  async saveTelegramConfig() {
+    const elToggle = document.getElementById('telegram-enable-toggle');
+    const elToken = document.getElementById('telegram-token-input');
+    const elUsers = document.getElementById('telegram-users-input');
+    const elTools = document.getElementById('telegram-tools-toggle');
+
+    const enabled = elToggle ? elToggle.checked : false;
+    const token = elToken ? elToken.value.trim() : '';
+    const usersStr = elUsers ? elUsers.value.trim() : '';
+    const showTools = elTools ? elTools.checked : true;
+
+    const allowed_users = usersStr ? usersStr.split(',').map(s => s.trim()).filter(Boolean) : [];
+
+    const payload = {
+      enabled,
+      allowed_users,
+      show_tools: showTools,
+    };
+    if (token) payload.token = token;
+
+    try {
+      const res = await fetch('/api/channels/telegram/config', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(payload)
+      });
+      if (res.ok) {
+        alert('Telegram bot configuration updated successfully!');
+        this.fetchChannels();
+        this.loadChannelsForm();
+      }
+    } catch (e) {
+      alert('Error updating Telegram config: ' + e);
+    }
+  }
+
+  async saveWhatsAppConfig() {
+    const elToggle = document.getElementById('whatsapp-enable-toggle');
+    const elMode = document.getElementById('whatsapp-mode-select');
+    const elPhoneId = document.getElementById('whatsapp-phone-id-input');
+    const elToken = document.getElementById('whatsapp-token-input');
+    const elVerifyToken = document.getElementById('whatsapp-verify-token-input');
+    const elGatewayUrl = document.getElementById('whatsapp-gateway-url-input');
+    const elGatewayToken = document.getElementById('whatsapp-gateway-token-input');
+    const elNumbers = document.getElementById('whatsapp-numbers-input');
+    const elTools = document.getElementById('whatsapp-tools-toggle');
+
+    const enabled = elToggle ? elToggle.checked : false;
+    const mode = elMode ? elMode.value : 'cloud_api';
+    const phoneId = elPhoneId ? elPhoneId.value.trim() : '';
+    const token = elToken ? elToken.value.trim() : '';
+    const verifyToken = elVerifyToken ? elVerifyToken.value.trim() : '';
+    const gatewayUrl = elGatewayUrl ? elGatewayUrl.value.trim() : '';
+    const gatewayToken = elGatewayToken ? elGatewayToken.value.trim() : '';
+    const numbersStr = elNumbers ? elNumbers.value.trim() : '';
+    const showTools = elTools ? elTools.checked : false;
+
+    const allowed_numbers = numbersStr ? numbersStr.split(',').map(s => s.trim()).filter(Boolean) : [];
+
+    const payload = {
+      enabled,
+      mode,
+      phone_number_id: phoneId,
+      verify_token: verifyToken,
+      gateway_url: gatewayUrl,
+      allowed_numbers,
+      show_tools: showTools,
+    };
+    if (token) payload.access_token = token;
+    if (gatewayToken) payload.gateway_token = gatewayToken;
+
+    try {
+      const res = await fetch('/api/channels/whatsapp/config', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(payload)
+      });
+      if (res.ok) {
+        alert('WhatsApp configuration updated successfully!');
+        this.fetchChannels();
+        this.loadChannelsForm();
+      }
+    } catch (e) {
+      alert('Error updating WhatsApp config: ' + e);
+    }
+  }
+
+  async saveiMessageConfig() {
+    const elToggle = document.getElementById('imessage-enable-toggle');
+    const elServerUrl = document.getElementById('imessage-server-url-input');
+    const elPassword = document.getElementById('imessage-password-input');
+    const elSenders = document.getElementById('imessage-senders-input');
+    const elTools = document.getElementById('imessage-tools-toggle');
+
+    const enabled = elToggle ? elToggle.checked : false;
+    const serverUrl = elServerUrl ? elServerUrl.value.trim() : '';
+    const password = elPassword ? elPassword.value.trim() : '';
+    const sendersStr = elSenders ? elSenders.value.trim() : '';
+    const showTools = elTools ? elTools.checked : false;
+
+    const allowed_senders = sendersStr ? sendersStr.split(',').map(s => s.trim()).filter(Boolean) : [];
+
+    const payload = {
+      enabled,
+      server_url: serverUrl,
+      allowed_senders,
+      show_tools: showTools,
+    };
+    if (password) payload.password = password;
+
+    try {
+      const res = await fetch('/api/channels/imessage/config', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(payload)
+      });
+      if (res.ok) {
+        alert('iMessage configuration updated successfully!');
+        this.fetchChannels();
+        this.loadChannelsForm();
+      }
+    } catch (e) {
+      alert('Error updating iMessage config: ' + e);
     }
   }
 

@@ -6321,3 +6321,137 @@ html[data-theme="light"] .proc-step-content {
   from { opacity: 0; transform: translateY(6px); }
   to { opacity: 1; transform: translateY(0); }
 }
+
+/* ==========================================================================
+   Multi-Channel Integrations Hub (Discord, Telegram, WhatsApp, iMessage, Webhook)
+   ========================================================================== */
+.channels-summary-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(130px, 1fr));
+  gap: 10px;
+  margin-bottom: 14px;
+}
+
+.channel-summary-card {
+  background: var(--bg-tertiary);
+  border: 1px solid var(--border-light);
+  border-radius: var(--radius-sm);
+  padding: 10px 12px;
+  display: flex;
+  flex-direction: column;
+  gap: 5px;
+  cursor: pointer;
+  transition: all 0.15s ease;
+  user-select: none;
+}
+
+.channel-summary-card:hover {
+  background: var(--bg-hover);
+  border-color: var(--accent-primary);
+  transform: translateY(-1px);
+}
+
+.channel-summary-card.active {
+  border-color: var(--accent-primary);
+  background: rgba(49, 134, 255, 0.08);
+  box-shadow: 0 0 0 1px var(--accent-primary);
+}
+
+.channel-card-head {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+
+.channel-card-title {
+  font-weight: 700;
+  font-size: 13px;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  color: var(--text-primary);
+}
+
+.channel-card-sub {
+  font-size: 11.5px;
+  color: var(--text-muted);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  text-transform: capitalize;
+}
+
+.channel-sub-nav {
+  display: flex;
+  gap: 6px;
+  border-bottom: 1px solid var(--border-color);
+  padding-bottom: 8px;
+  margin-bottom: 14px;
+  overflow-x: auto;
+  scrollbar-width: none;
+}
+
+.channel-sub-nav::-webkit-scrollbar {
+  display: none;
+}
+
+.channel-sub-btn {
+  background: var(--bg-secondary);
+  border: 1px solid var(--border-color);
+  border-radius: var(--radius-sm);
+  padding: 6px 14px;
+  color: var(--text-secondary);
+  font-size: 12.5px;
+  font-weight: 600;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  white-space: nowrap;
+  transition: all 0.15s ease;
+}
+
+.channel-sub-btn:hover {
+  color: var(--text-primary);
+  background: var(--bg-hover);
+}
+
+.channel-sub-btn.active {
+  background: var(--accent-primary);
+  color: #fff;
+  border-color: var(--accent-primary);
+}
+
+.channel-sub-content {
+  display: none;
+  flex-direction: column;
+  gap: 14px;
+}
+
+.channel-sub-content.active {
+  display: flex;
+}
+
+.copy-input-group {
+  display: flex;
+  gap: 6px;
+}
+
+.btn-copy-url {
+  background: var(--bg-tertiary);
+  border: 1px solid var(--border-color);
+  border-radius: var(--radius-sm);
+  padding: 0 14px;
+  color: var(--text-secondary);
+  font-size: 12px;
+  font-weight: 600;
+  cursor: pointer;
+  white-space: nowrap;
+  transition: all 0.15s ease;
+}
+
+.btn-copy-url:hover {
+  background: var(--bg-hover);
+  color: var(--text-primary);
+}
+

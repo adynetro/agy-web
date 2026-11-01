@@ -13,7 +13,7 @@
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=JetBrains+Mono:ital,wght@0,400;0,500;0,600;0,700;1,400&family=Material+Symbols+Outlined:opsz,wght,FILL,GRAD@20..48,100..700,0..1,-50..200&display=swap" rel="stylesheet">
   <link rel="stylesheet" href="/static/vendor/github-dark.min.css">
-  <link rel="stylesheet" href="/static/css/app.css?v=4.4">
+  <link rel="stylesheet" href="/static/css/app.css?v=5.0">
 </head>
 <body>
   <div id="app">
@@ -358,7 +358,7 @@
             <span>⚙️</span> General
           </button>
           <button class="settings-tab-btn" data-tab="tab-discord" id="tab-btn-discord">
-            <span>💬</span> Discord &amp; Channels
+            <span>💬</span> Channels &amp; Messaging
             <span id="settings-discord-dot" class="status-indicator offline" style="margin-left: 6px; width: 6px; height: 6px;"></span>
           </button>
           <button class="settings-tab-btn" data-tab="tab-branding" id="tab-btn-branding">
@@ -424,64 +424,398 @@
             </div>
           </div>
 
-          <!-- Tab 2: Discord & Channels -->
+          <!-- Tab 2: Channels & Messaging Bridges -->
           <div id="tab-discord" class="settings-tab-content">
-            <div style="background-color: var(--bg-tertiary); padding: 14px; border-radius: var(--radius-sm); border: 1px solid var(--border-light);">
-              <div id="discord-live-status">
-                <strong>Loading Discord status...</strong>
-              </div>
-            </div>
-
-            <div class="form-group">
-              <div class="toggle-row">
-                <div>
-                  <div class="form-label">Enable Discord Bot</div>
-                  <div class="form-desc">Allow users to chat with agy directly via Discord</div>
+            <!-- Channels Overview Cards Grid -->
+            <div class="channels-summary-grid">
+              <div class="channel-summary-card active" data-channel-target="discord" id="card-sum-discord">
+                <div class="channel-card-head">
+                  <span class="channel-card-title">🟣 Discord</span>
+                  <span id="sum-dot-discord" class="status-indicator offline"></span>
                 </div>
-                <label class="switch">
-                  <input id="discord-enable-toggle" type="checkbox">
-                  <span class="slider"></span>
-                </label>
+                <span id="sum-sub-discord" class="channel-card-sub">Offline</span>
               </div>
-            </div>
-
-            <div class="form-group">
-              <label class="form-label" for="discord-token-input">Discord Bot Token</label>
-              <div class="form-desc">From Discord Developer Portal &gt; Applications &gt; Bot</div>
-              <input id="discord-token-input" type="password" class="form-input" placeholder="Enter Bot Token" />
-            </div>
-
-            <div class="form-group">
-              <label class="form-label" for="discord-prefix-input">Command Prefix</label>
-              <div class="form-desc">Prefix for bot commands in Discord (e.g. <code>!agy</code>)</div>
-              <input id="discord-prefix-input" type="text" class="form-input" value="!agy" />
-            </div>
-
-            <div class="form-group">
-              <label class="form-label" for="discord-channels-input">Allowed Channel IDs (Optional)</label>
-              <div class="form-desc">Comma-separated channel IDs. Leave empty to allow all channels</div>
-              <input id="discord-channels-input" type="text" class="form-input" placeholder="e.g. 123456789012345678" />
-            </div>
-
-            <div class="form-group">
-              <div class="toggle-row">
-                <div>
-                  <div class="form-label">Auto-create Threads</div>
-                  <div class="form-desc">Automatically create a thread for each new prompt in guild channels</div>
+              <div class="channel-summary-card" data-channel-target="telegram" id="card-sum-telegram">
+                <div class="channel-card-head">
+                  <span class="channel-card-title">✈️ Telegram</span>
+                  <span id="sum-dot-telegram" class="status-indicator offline"></span>
                 </div>
-                <label class="switch">
-                  <input id="discord-autothread-toggle" type="checkbox">
-                  <span class="slider"></span>
-                </label>
+                <span id="sum-sub-telegram" class="channel-card-sub">Offline</span>
+              </div>
+              <div class="channel-summary-card" data-channel-target="whatsapp" id="card-sum-whatsapp">
+                <div class="channel-card-head">
+                  <span class="channel-card-title">💬 WhatsApp</span>
+                  <span id="sum-dot-whatsapp" class="status-indicator offline"></span>
+                </div>
+                <span id="sum-sub-whatsapp" class="channel-card-sub">Offline</span>
+              </div>
+              <div class="channel-summary-card" data-channel-target="imessage" id="card-sum-imessage">
+                <div class="channel-card-head">
+                  <span class="channel-card-title">🍎 iMessage</span>
+                  <span id="sum-dot-imessage" class="status-indicator offline"></span>
+                </div>
+                <span id="sum-sub-imessage" class="channel-card-sub">Offline</span>
+              </div>
+              <div class="channel-summary-card" data-channel-target="webhook" id="card-sum-webhook">
+                <div class="channel-card-head">
+                  <span class="channel-card-title">⚡ Webhook</span>
+                  <span id="sum-dot-webhook" class="status-indicator online"></span>
+                </div>
+                <span id="sum-sub-webhook" class="channel-card-sub">Active</span>
               </div>
             </div>
 
-            <div style="background-color: rgba(49, 134, 255, 0.08); border: 1px solid rgba(49, 134, 255, 0.25); padding: 12px; border-radius: var(--radius-sm); font-size: 12px; color: #8ab4f8; line-height: 1.5;">
-              💡 <strong>Discord Setup Tip:</strong> In the Discord Developer Portal under <strong>Bot &gt; Privileged Gateway Intents</strong>, make sure <strong>Message Content Intent</strong> is enabled so the bot can read incoming prompt text.
+            <!-- Subtab Navigation Bar -->
+            <div class="channel-sub-nav">
+              <button class="channel-sub-btn active" data-subtab="channel-discord" id="subtab-btn-discord">
+                <span>🟣</span> Discord
+              </button>
+              <button class="channel-sub-btn" data-subtab="channel-telegram" id="subtab-btn-telegram">
+                <span>✈️</span> Telegram
+              </button>
+              <button class="channel-sub-btn" data-subtab="channel-whatsapp" id="subtab-btn-whatsapp">
+                <span>💬</span> WhatsApp
+              </button>
+              <button class="channel-sub-btn" data-subtab="channel-imessage" id="subtab-btn-imessage">
+                <span>🍎</span> iMessage
+              </button>
+              <button class="channel-sub-btn" data-subtab="channel-webhook" id="subtab-btn-webhook">
+                <span>⚡</span> Webhook / API
+              </button>
             </div>
 
-            <div style="display: flex; justify-content: flex-end; margin-top: 8px;">
-              <button id="btn-save-discord" class="btn-primary">Save &amp; Restart Discord Bot</button>
+            <!-- Subtab 1: Discord -->
+            <div id="subtab-channel-discord" class="channel-sub-content active">
+              <div style="background-color: var(--bg-tertiary); padding: 14px; border-radius: var(--radius-sm); border: 1px solid var(--border-light);">
+                <div id="discord-live-status">
+                  <strong>Loading Discord status...</strong>
+                </div>
+              </div>
+
+              <div class="form-group">
+                <div class="toggle-row">
+                  <div>
+                    <div class="form-label">Enable Discord Bot</div>
+                    <div class="form-desc">Allow users to chat with agy directly via Discord</div>
+                  </div>
+                  <label class="switch">
+                    <input id="discord-enable-toggle" type="checkbox">
+                    <span class="slider"></span>
+                  </label>
+                </div>
+              </div>
+
+              <div class="form-group">
+                <label class="form-label" for="discord-token-input">Discord Bot Token</label>
+                <div class="form-desc">From Discord Developer Portal &gt; Applications &gt; Bot</div>
+                <input id="discord-token-input" type="password" class="form-input" placeholder="Enter Bot Token" />
+              </div>
+
+              <div class="form-group">
+                <label class="form-label" for="discord-prefix-input">Command Prefix</label>
+                <div class="form-desc">Prefix for bot commands in Discord (e.g. <code>!agy</code>)</div>
+                <input id="discord-prefix-input" type="text" class="form-input" value="!agy" />
+              </div>
+
+              <div class="form-group">
+                <label class="form-label" for="discord-channels-input">Allowed Channel IDs (Optional)</label>
+                <div class="form-desc">Comma-separated channel IDs. Leave empty to allow all channels</div>
+                <input id="discord-channels-input" type="text" class="form-input" placeholder="e.g. 123456789012345678" />
+              </div>
+
+              <div class="form-group">
+                <div class="toggle-row">
+                  <div>
+                    <div class="form-label">Auto-create Threads</div>
+                    <div class="form-desc">Automatically create a thread for each new prompt in guild channels</div>
+                  </div>
+                  <label class="switch">
+                    <input id="discord-autothread-toggle" type="checkbox">
+                    <span class="slider"></span>
+                  </label>
+                </div>
+              </div>
+
+              <div class="form-group">
+                <div class="toggle-row">
+                  <div>
+                    <div class="form-label">Show Tool Execution Updates</div>
+                    <div class="form-desc">Stream live tool execution notifications into Discord</div>
+                  </div>
+                  <label class="switch">
+                    <input id="discord-tools-toggle" type="checkbox" checked>
+                    <span class="slider"></span>
+                  </label>
+                </div>
+              </div>
+
+              <div style="background-color: rgba(49, 134, 255, 0.08); border: 1px solid rgba(49, 134, 255, 0.25); padding: 12px; border-radius: var(--radius-sm); font-size: 12px; color: #8ab4f8; line-height: 1.5;">
+                💡 <strong>Discord Setup Tip:</strong> In the Discord Developer Portal under <strong>Bot &gt; Privileged Gateway Intents</strong>, make sure <strong>Message Content Intent</strong> is enabled so the bot can read incoming prompt text.
+              </div>
+
+              <div style="display: flex; justify-content: flex-end; margin-top: 8px;">
+                <button id="btn-save-discord" class="btn-primary">Save &amp; Restart Discord Bot</button>
+              </div>
+            </div>
+
+            <!-- Subtab 2: Telegram -->
+            <div id="subtab-channel-telegram" class="channel-sub-content">
+              <div style="background-color: var(--bg-tertiary); padding: 14px; border-radius: var(--radius-sm); border: 1px solid var(--border-light);">
+                <div id="telegram-live-status">
+                  <strong>Loading Telegram status...</strong>
+                </div>
+              </div>
+
+              <div class="form-group">
+                <div class="toggle-row">
+                  <div>
+                    <div class="form-label">Enable Telegram Bot</div>
+                    <div class="form-desc">Chat with Antigravity directly via Telegram using native HTTPS long-polling</div>
+                  </div>
+                  <label class="switch">
+                    <input id="telegram-enable-toggle" type="checkbox">
+                    <span class="slider"></span>
+                  </label>
+                </div>
+              </div>
+
+              <div class="form-group">
+                <label class="form-label" for="telegram-token-input">Telegram Bot Token</label>
+                <div class="form-desc">Obtained from Telegram's <strong>@BotFather</strong> via <code>/newbot</code></div>
+                <input id="telegram-token-input" type="password" class="form-input" placeholder="e.g. 123456789:ABCdefGhIJKlmNoPQRsTUVwxyZ" />
+              </div>
+
+              <div class="form-group">
+                <label class="form-label" for="telegram-users-input">Allowed Telegram Usernames / IDs (Optional)</label>
+                <div class="form-desc">Comma-separated usernames (e.g. <code>@adynetro</code>) or numerical user IDs. Leave empty to allow any user.</div>
+                <input id="telegram-users-input" type="text" class="form-input" placeholder="e.g. @adynetro, 987654321" />
+              </div>
+
+              <div class="form-group">
+                <div class="toggle-row">
+                  <div>
+                    <div class="form-label">Show Tool Execution Updates</div>
+                    <div class="form-desc">Stream live tool execution steps and actions into Telegram messages</div>
+                  </div>
+                  <label class="switch">
+                    <input id="telegram-tools-toggle" type="checkbox" checked>
+                    <span class="slider"></span>
+                  </label>
+                </div>
+              </div>
+
+              <div style="background-color: rgba(0, 185, 92, 0.08); border: 1px solid rgba(0, 185, 92, 0.25); padding: 12px; border-radius: var(--radius-sm); font-size: 12px; color: #70e3a3; line-height: 1.5;">
+                💡 <strong>Telegram Setup Tip:</strong> Message <strong>@BotFather</strong> on Telegram, create a bot, and paste the API token here. The bot communicates via real-time HTTPS long polling — zero firewall, router port-forwarding, or public domain required!
+              </div>
+
+              <div style="display: flex; justify-content: flex-end; margin-top: 8px;">
+                <button id="btn-save-telegram" class="btn-primary">Save &amp; Restart Telegram Bot</button>
+              </div>
+            </div>
+
+            <!-- Subtab 3: WhatsApp -->
+            <div id="subtab-channel-whatsapp" class="channel-sub-content">
+              <div style="background-color: var(--bg-tertiary); padding: 14px; border-radius: var(--radius-sm); border: 1px solid var(--border-light);">
+                <div id="whatsapp-live-status">
+                  <strong>Loading WhatsApp status...</strong>
+                </div>
+              </div>
+
+              <div class="form-group">
+                <div class="toggle-row">
+                  <div>
+                    <div class="form-label">Enable WhatsApp Channel</div>
+                    <div class="form-desc">Allow authorized contacts to chat with Antigravity over WhatsApp</div>
+                  </div>
+                  <label class="switch">
+                    <input id="whatsapp-enable-toggle" type="checkbox">
+                    <span class="slider"></span>
+                  </label>
+                </div>
+              </div>
+
+              <div class="form-group">
+                <label class="form-label" for="whatsapp-mode-select">Integration Architecture</label>
+                <div class="form-desc">Choose between official Meta Cloud API or a self-hosted Gateway/Bridge (Evolution, Baileys, WPPConnect)</div>
+                <select id="whatsapp-mode-select" class="form-input">
+                  <option value="cloud_api" selected>Meta WhatsApp Cloud API (Official)</option>
+                  <option value="gateway">Local Gateway / Webhook Bridge (Evolution / Baileys / WPPConnect)</option>
+                </select>
+              </div>
+
+              <!-- Meta Cloud API Specific Settings -->
+              <div id="whatsapp-cloud-section">
+                <div class="form-group">
+                  <label class="form-label" for="whatsapp-phone-id-input">Meta Phone Number ID</label>
+                  <div class="form-desc">From Meta for Developers &gt; WhatsApp &gt; API Setup</div>
+                  <input id="whatsapp-phone-id-input" type="text" class="form-input" placeholder="e.g. 104859283748291" />
+                </div>
+
+                <div class="form-group">
+                  <label class="form-label" for="whatsapp-token-input">Meta Permanent Access Token</label>
+                  <div class="form-desc">System User Access Token with <code>whatsapp_business_messaging</code> permission</div>
+                  <input id="whatsapp-token-input" type="password" class="form-input" placeholder="Enter Meta Access Token" />
+                </div>
+
+                <div class="form-group">
+                  <label class="form-label" for="whatsapp-verify-token-input">Webhook Verification Secret</label>
+                  <div class="form-desc">Secret token to enter into Meta Webhook configuration to verify endpoint ownership</div>
+                  <input id="whatsapp-verify-token-input" type="text" class="form-input" value="agy-verify-secret" />
+                </div>
+              </div>
+
+              <!-- Gateway / Bridge Specific Settings -->
+              <div id="whatsapp-gateway-section" style="display: none;">
+                <div class="form-group">
+                  <label class="form-label" for="whatsapp-gateway-url-input">Gateway API Endpoint URL</label>
+                  <div class="form-desc">Outbound message URL for your local Baileys, Evolution API, or WPPConnect instance</div>
+                  <input id="whatsapp-gateway-url-input" type="text" class="form-input" placeholder="e.g. http://10.0.0.192:8080/message/sendText" />
+                </div>
+
+                <div class="form-group">
+                  <label class="form-label" for="whatsapp-gateway-token-input">Gateway API Key / Token (Optional)</label>
+                  <div class="form-desc">API authentication key or Bearer token for your gateway instance</div>
+                  <input id="whatsapp-gateway-token-input" type="password" class="form-input" placeholder="Enter Gateway API Key" />
+                </div>
+              </div>
+
+              <!-- WhatsApp Common Settings -->
+              <div class="form-group">
+                <label class="form-label" for="whatsapp-numbers-input">Allowed Phone Numbers (Optional)</label>
+                <div class="form-desc">Comma-separated phone numbers with country code (e.g. <code>+40712345678, +14155552671</code>). Leave empty to allow any contact.</div>
+                <input id="whatsapp-numbers-input" type="text" class="form-input" placeholder="e.g. +40712345678" />
+              </div>
+
+              <div class="form-group">
+                <div class="toggle-row">
+                  <div>
+                    <div class="form-label">Show Tool Execution Updates</div>
+                    <div class="form-desc">Send tool execution progress messages in WhatsApp</div>
+                  </div>
+                  <label class="switch">
+                    <input id="whatsapp-tools-toggle" type="checkbox">
+                    <span class="slider"></span>
+                  </label>
+                </div>
+              </div>
+
+              <!-- Inbound Webhook Helper -->
+              <div class="form-group">
+                <label class="form-label">Inbound Webhook Callback URL</label>
+                <div class="form-desc">Configure this URL in Meta Developer Dashboard or your WhatsApp bridge to receive messages:</div>
+                <div class="copy-input-group">
+                  <input id="whatsapp-webhook-url-display" type="text" class="form-input" readonly value="" style="font-family: var(--font-mono); font-size: 12px; background: var(--bg-tertiary);" />
+                  <button type="button" class="btn-copy-url" id="btn-copy-wa-webhook">📋 Copy</button>
+                </div>
+              </div>
+
+              <div style="display: flex; justify-content: flex-end; margin-top: 8px;">
+                <button id="btn-save-whatsapp" class="btn-primary">Save WhatsApp Settings</button>
+              </div>
+            </div>
+
+            <!-- Subtab 4: iMessage -->
+            <div id="subtab-channel-imessage" class="channel-sub-content">
+              <div style="background-color: var(--bg-tertiary); padding: 14px; border-radius: var(--radius-sm); border: 1px solid var(--border-light);">
+                <div id="imessage-live-status">
+                  <strong>Loading iMessage status...</strong>
+                </div>
+              </div>
+
+              <div class="form-group">
+                <div class="toggle-row">
+                  <div>
+                    <div class="form-label">Enable Apple iMessage Integration</div>
+                    <div class="form-desc">Send and receive iMessages with your homelab agent via BlueBubbles</div>
+                  </div>
+                  <label class="switch">
+                    <input id="imessage-enable-toggle" type="checkbox">
+                    <span class="slider"></span>
+                  </label>
+                </div>
+              </div>
+
+              <div class="form-group">
+                <label class="form-label" for="imessage-server-url-input">BlueBubbles Server Base URL</label>
+                <div class="form-desc">HTTP/HTTPS endpoint of your BlueBubbles server (macOS host or VM)</div>
+                <input id="imessage-server-url-input" type="text" class="form-input" placeholder="e.g. http://10.0.0.95:1234 or https://bluebubbles.example.com" />
+              </div>
+
+              <div class="form-group">
+                <label class="form-label" for="imessage-password-input">BlueBubbles Server Password</label>
+                <div class="form-desc">Configured password for the BlueBubbles REST API</div>
+                <input id="imessage-password-input" type="password" class="form-input" placeholder="Enter BlueBubbles Password" />
+              </div>
+
+              <div class="form-group">
+                <label class="form-label" for="imessage-senders-input">Allowed Apple IDs or Phone Numbers (Optional)</label>
+                <div class="form-desc">Comma-separated sender handles (e.g. <code>user@icloud.com, +14155552671</code>). Leave empty to allow any contact.</div>
+                <input id="imessage-senders-input" type="text" class="form-input" placeholder="e.g. user@icloud.com, +14155552671" />
+              </div>
+
+              <div class="form-group">
+                <div class="toggle-row">
+                  <div>
+                    <div class="form-label">Show Tool Execution Updates</div>
+                    <div class="form-desc">Send tool execution progress messages in iMessage</div>
+                  </div>
+                  <label class="switch">
+                    <input id="imessage-tools-toggle" type="checkbox">
+                    <span class="slider"></span>
+                  </label>
+                </div>
+              </div>
+
+              <!-- BlueBubbles Webhook Helper -->
+              <div class="form-group">
+                <label class="form-label">BlueBubbles Webhook Callback URL</label>
+                <div class="form-desc">In BlueBubbles &gt; Settings &gt; Webhooks, add this URL with event <code>new-message</code>:</div>
+                <div class="copy-input-group">
+                  <input id="imessage-webhook-url-display" type="text" class="form-input" readonly value="" style="font-family: var(--font-mono); font-size: 12px; background: var(--bg-tertiary);" />
+                  <button type="button" class="btn-copy-url" id="btn-copy-im-webhook">📋 Copy</button>
+                </div>
+              </div>
+
+              <div style="background-color: rgba(49, 134, 255, 0.08); border: 1px solid rgba(49, 134, 255, 0.25); padding: 12px; border-radius: var(--radius-sm); font-size: 12px; color: #8ab4f8; line-height: 1.5;">
+                💡 <strong>BlueBubbles Setup Tip:</strong> BlueBubbles is the standard open-source iMessage gateway running on macOS. Once connected, Antigravity will automatically participate in multi-turn conversations and respond to your queries directly in the Messages app.
+              </div>
+
+              <div style="display: flex; justify-content: flex-end; margin-top: 8px;">
+                <button id="btn-save-imessage" class="btn-primary">Save iMessage Settings</button>
+              </div>
+            </div>
+
+            <!-- Subtab 5: Webhook / API -->
+            <div id="subtab-channel-webhook" class="channel-sub-content">
+              <div style="background-color: var(--bg-tertiary); padding: 14px; border-radius: var(--radius-sm); border: 1px solid var(--border-light);">
+                <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:8px;">
+                  <div>
+                    <span class="status-indicator online"></span>
+                    <strong>Webhook &amp; API Channel:</strong> <span style="text-transform:uppercase; font-weight:700;">ONLINE</span>
+                  </div>
+                  <span class="brand-badge" style="background:rgba(0,185,92,0.15); color:var(--success);">ALWAYS READY</span>
+                </div>
+                <div style="font-size:13px; line-height:1.6; color:var(--text-secondary);">
+                  HTTP Webhook endpoint for CI/CD automation, Home Assistant automations, cron jobs, and external scripting.
+                </div>
+              </div>
+
+              <div class="form-group">
+                <label class="form-label">Trigger Endpoint URL</label>
+                <div class="copy-input-group">
+                  <input id="webhook-trigger-url-display" type="text" class="form-input" readonly value="" style="font-family: var(--font-mono); font-size: 12px; background: var(--bg-tertiary);" />
+                  <button type="button" class="btn-copy-url" id="btn-copy-webhook-url">📋 Copy</button>
+                </div>
+              </div>
+
+              <div class="form-group">
+                <label class="form-label">Example Usage (cURL)</label>
+                <div style="background-color: var(--code-bg); padding: 12px; border-radius: var(--radius-sm); font-family: var(--font-mono); font-size: 12px; line-height: 1.6; overflow-x: auto; color: var(--text-primary); border: 1px solid var(--border-color);">
+                  curl -X POST https://agy.service.chiscari.ro/api/channels/webhook/trigger \<br>
+                  &nbsp;&nbsp;-H "Content-Type: application/json" \<br>
+                  &nbsp;&nbsp;-d '{"prompt": "Audit container health and report disk usage", "callback_url": "https://hooks.lan/result"}'
+                </div>
+              </div>
             </div>
           </div>
 
@@ -740,6 +1074,6 @@
 
   <script src="/static/vendor/marked.min.js"></script>
   <script src="/static/vendor/highlight.min.js"></script>
-  <script src="/static/js/app.js?v=4.3"></script>
+  <script src="/static/js/app.js?v=5.0"></script>
 </body>
 </html>

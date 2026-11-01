@@ -4,25 +4,33 @@ from typing import Any, Dict, List, Optional
 from app.channels.base import BaseChannel
 from app.channels.web import web_channel
 from app.channels.discord import discord_channel
+from app.channels.telegram import telegram_channel
+from app.channels.whatsapp import whatsapp_channel
+from app.channels.imessage import imessage_channel
 from app.channels.webhook import webhook_channel
 from app.engine import engine
 
 
 class ChannelManager:
     """
-    Central manager and registry for messaging channels.
-    Allows easy addition of new channels (Slack, Telegram, Matrix, etc.).
+    Central manager and registry for messaging channels (Web UI, Discord, Telegram, WhatsApp, iMessage, Webhooks).
     """
 
     def __init__(self):
         self._channels: Dict[str, BaseChannel] = {}
-        # Register default channels
+        # Register default and extended messaging channels
         self.register_channel(web_channel)
         self.register_channel(discord_channel)
+        self.register_channel(telegram_channel)
+        self.register_channel(whatsapp_channel)
+        self.register_channel(imessage_channel)
         self.register_channel(webhook_channel)
 
         # Wire up engine
         discord_channel.engine = engine
+        telegram_channel.engine = engine
+        whatsapp_channel.engine = engine
+        imessage_channel.engine = engine
 
     def register_channel(self, channel: BaseChannel) -> None:
         self._channels[channel.channel_id] = channel

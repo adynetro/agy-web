@@ -44,6 +44,30 @@ class Settings(BaseModel):
     discord_auto_thread: bool = Field(default=False, description="Automatically spawn threads for channel questions")
     discord_show_tools: bool = Field(default=True, description="Post tool execution notifications in Discord")
 
+    # Telegram Channel Settings
+    telegram_enabled: bool = Field(default=False, description="Whether the Telegram bot channel is active")
+    telegram_bot_token: str = Field(default="", description="Telegram Bot Token from @BotFather")
+    telegram_allowed_users: List[str] = Field(default_factory=list, description="Allowed Telegram usernames or user IDs (empty for all)")
+    telegram_show_tools: bool = Field(default=True, description="Send tool execution updates in Telegram")
+
+    # WhatsApp Channel Settings
+    whatsapp_enabled: bool = Field(default=False, description="Whether the WhatsApp messaging channel is active")
+    whatsapp_mode: str = Field(default="cloud_api", description="Integration mode: 'cloud_api' (Meta Graph API) or 'gateway' (Evolution/Baileys/custom)")
+    whatsapp_phone_number_id: str = Field(default="", description="Meta WhatsApp Phone Number ID")
+    whatsapp_access_token: str = Field(default="", description="Meta WhatsApp Permanent Access Token")
+    whatsapp_verify_token: str = Field(default="agy-verify-secret", description="Meta Webhook Verification Token")
+    whatsapp_gateway_url: str = Field(default="", description="Self-hosted WhatsApp Gateway endpoint URL (e.g. Evolution/Baileys/WPPConnect)")
+    whatsapp_gateway_token: str = Field(default="", description="Authentication token/API key for gateway endpoint")
+    whatsapp_allowed_numbers: List[str] = Field(default_factory=list, description="Allowed sender phone numbers (empty for all)")
+    whatsapp_show_tools: bool = Field(default=False, description="Send tool execution updates in WhatsApp")
+
+    # iMessage Channel Settings
+    imessage_enabled: bool = Field(default=False, description="Whether the Apple iMessage channel is active")
+    imessage_server_url: str = Field(default="", description="BlueBubbles server base URL (e.g. http://10.0.0.x:1234)")
+    imessage_password: str = Field(default="", description="BlueBubbles server password")
+    imessage_allowed_senders: List[str] = Field(default_factory=list, description="Allowed iMessage Apple IDs or phone numbers (empty for all)")
+    imessage_show_tools: bool = Field(default=False, description="Send tool execution updates in iMessage")
+
     # Custom Branding Settings
     brand_prefix: str = Field(default="Google", description="Brand prefix or organization name")
     brand_name: str = Field(default="Antigravity", description="Primary brand or platform name")
@@ -60,11 +84,19 @@ class Settings(BaseModel):
 
 
 def get_default_settings() -> Settings:
-    token = os.environ.get("DISCORD_BOT_TOKEN", "")
-    enabled = bool(token)
+    d_token = os.environ.get("DISCORD_BOT_TOKEN", "")
+    t_token = os.environ.get("TELEGRAM_BOT_TOKEN", "")
+    w_token = os.environ.get("WHATSAPP_ACCESS_TOKEN", "")
+    im_url = os.environ.get("IMESSAGE_SERVER_URL", "")
     return Settings(
-        discord_bot_token=token,
-        discord_enabled=enabled,
+        discord_bot_token=d_token,
+        discord_enabled=bool(d_token),
+        telegram_bot_token=t_token,
+        telegram_enabled=bool(t_token),
+        whatsapp_access_token=w_token,
+        whatsapp_enabled=bool(w_token),
+        imessage_server_url=im_url,
+        imessage_enabled=bool(im_url),
     )
 
 

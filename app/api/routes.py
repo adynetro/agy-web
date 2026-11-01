@@ -7,7 +7,8 @@ import time
 import re
 from typing import Any, Dict, List, Optional
 from pathlib import Path
-from fastapi import APIRouter, HTTPException, BackgroundTasks, UploadFile, File
+from fastapi import APIRouter, HTTPException, BackgroundTasks, UploadFile, File, Request, Response
+from fastapi.responses import PlainTextResponse
 from pydantic import BaseModel, Field
 
 from app.config import settings, save_settings
@@ -16,6 +17,9 @@ from app.conversations import conv_manager
 from app.channels.manager import channel_manager
 from app.channels.web import web_channel
 from app.channels.discord import discord_channel
+from app.channels.telegram import telegram_channel
+from app.channels.whatsapp import whatsapp_channel
+from app.channels.imessage import imessage_channel
 from app.channels.webhook import webhook_channel
 from app.processes import process_manager
 
@@ -38,6 +42,33 @@ class DiscordConfigRequest(BaseModel):
     allowed_channels: Optional[List[str]] = Field(None, description="List of allowed channel IDs")
     allowed_guilds: Optional[List[str]] = Field(None, description="List of allowed guild IDs")
     auto_thread: Optional[bool] = Field(None, description="Auto thread")
+    show_tools: Optional[bool] = Field(None, description="Show tool updates")
+
+
+class TelegramConfigRequest(BaseModel):
+    enabled: bool = Field(..., description="Enable or disable Telegram bot")
+    token: Optional[str] = Field(None, description="Telegram Bot Token")
+    allowed_users: Optional[List[str]] = Field(None, description="Allowed usernames or user IDs")
+    show_tools: Optional[bool] = Field(None, description="Show tool updates")
+
+
+class WhatsAppConfigRequest(BaseModel):
+    enabled: bool = Field(..., description="Enable or disable WhatsApp channel")
+    mode: Optional[str] = Field(None, description="Integration mode ('cloud_api' or 'gateway')")
+    phone_number_id: Optional[str] = Field(None, description="Meta WhatsApp Phone Number ID")
+    access_token: Optional[str] = Field(None, description="Meta WhatsApp Permanent Access Token")
+    verify_token: Optional[str] = Field(None, description="Meta Webhook Verification Secret")
+    gateway_url: Optional[str] = Field(None, description="Gateway endpoint URL")
+    gateway_token: Optional[str] = Field(None, description="Gateway authentication token/API key")
+    allowed_numbers: Optional[List[str]] = Field(None, description="Allowed sender phone numbers")
+    show_tools: Optional[bool] = Field(None, description="Show tool updates")
+
+
+class IMessageConfigRequest(BaseModel):
+    enabled: bool = Field(..., description="Enable or disable iMessage channel")
+    server_url: Optional[str] = Field(None, description="BlueBubbles server base URL")
+    password: Optional[str] = Field(None, description="BlueBubbles server password")
+    allowed_senders: Optional[List[str]] = Field(None, description="Allowed Apple IDs or phone numbers")
     show_tools: Optional[bool] = Field(None, description="Show tool updates")
 
 
@@ -199,6 +230,132 @@ async def configure_discord(req: DiscordConfigRequest):
     }
 
 
+@router.post("/channels/telegram/config")
+async def configure_telegram(req: TelegramConfigRequest):
+    settings.telegram_enabled = req.enabled
+    if req.token is not None and not ("..." in req.token or req.token == "***"):
+        settings.telegram_bot_token = req.token.strip()
+    if req.allowed_users is not None:
+        settings.telegram_allowed_users = req.allowed_users
+    if req.show_tools is not None:
+        settings.telegram_show_tools = req.show_tools
+
+    save_settings(settings)
+
+    if settings.telegram_enabled and settings.telegram_bot_token:
+        asyncio.create_task(telegram_channel.start())
+    else:
+        asyncio.create_task(telegram_channel.stop())
+
+    return {
+        "status": "ok",
+        "channel": telegram_channel.get_status()
+    }
+
+
+@router.post("/channels/telegram/webhook")
+async def handle_telegram_webhook(request: Request):
+    try:
+        body = await request.json()
+    except Exception:
+        raise HTTPException(status_code=400, detail="Invalid JSON body")
+    message = body.get("message")
+    if message:
+        asyncio.create_task(telegram_channel._process_message(message))
+    return {"ok": True}
+
+
+@router.post("/channels/whatsapp/config")
+async def configure_whatsapp(req: WhatsAppConfigRequest):
+    settings.whatsapp_enabled = req.enabled
+    if req.mode is not None:
+        settings.whatsapp_mode = req.mode
+    if req.phone_number_id is not None:
+        settings.whatsapp_phone_number_id = req.phone_number_id.strip()
+    if req.access_token is not None and not ("..." in req.access_token or req.access_token == "***"):
+        settings.whatsapp_access_token = req.access_token.strip()
+    if req.verify_token is not None and not ("..." in req.verify_token or req.verify_token == "***"):
+        settings.whatsapp_verify_token = req.verify_token.strip()
+    if req.gateway_url is not None:
+        settings.whatsapp_gateway_url = req.gateway_url.strip()
+    if req.gateway_token is not None and not ("..." in req.gateway_token or req.gateway_token == "***"):
+        settings.whatsapp_gateway_token = req.gateway_token.strip()
+    if req.allowed_numbers is not None:
+        settings.whatsapp_allowed_numbers = req.allowed_numbers
+    if req.show_tools is not None:
+        settings.whatsapp_show_tools = req.show_tools
+
+    save_settings(settings)
+
+    if settings.whatsapp_enabled:
+        asyncio.create_task(whatsapp_channel.start())
+    else:
+        asyncio.create_task(whatsapp_channel.stop())
+
+    return {
+        "status": "ok",
+        "channel": whatsapp_channel.get_status()
+    }
+
+
+@router.get("/channels/whatsapp/webhook")
+async def verify_whatsapp_webhook(request: Request):
+    params = request.query_params
+    mode = params.get("hub.mode")
+    token = params.get("hub.verify_token")
+    challenge = params.get("hub.challenge")
+
+    expected_token = getattr(settings, "whatsapp_verify_token", "agy-verify-secret")
+    if mode == "subscribe" and token == expected_token:
+        return PlainTextResponse(content=challenge or "")
+    raise HTTPException(status_code=403, detail="Verification token mismatch")
+
+
+@router.post("/channels/whatsapp/webhook")
+async def handle_whatsapp_webhook(request: Request):
+    try:
+        body = await request.json()
+    except Exception:
+        raise HTTPException(status_code=400, detail="Invalid JSON body")
+    res = await whatsapp_channel.handle_inbound_payload(body)
+    return res
+
+
+@router.post("/channels/imessage/config")
+async def configure_imessage(req: IMessageConfigRequest):
+    settings.imessage_enabled = req.enabled
+    if req.server_url is not None:
+        settings.imessage_server_url = req.server_url.strip()
+    if req.password is not None and not ("..." in req.password or req.password == "***"):
+        settings.imessage_password = req.password.strip()
+    if req.allowed_senders is not None:
+        settings.imessage_allowed_senders = req.allowed_senders
+    if req.show_tools is not None:
+        settings.imessage_show_tools = req.show_tools
+
+    save_settings(settings)
+
+    if settings.imessage_enabled:
+        asyncio.create_task(imessage_channel.start())
+    else:
+        asyncio.create_task(imessage_channel.stop())
+
+    return {
+        "status": "ok",
+        "channel": imessage_channel.get_status()
+    }
+
+
+@router.post("/channels/imessage/webhook")
+async def handle_imessage_webhook(request: Request):
+    try:
+        body = await request.json()
+    except Exception:
+        raise HTTPException(status_code=400, detail="Invalid JSON body")
+    res = await imessage_channel.handle_inbound_payload(body)
+    return res
+
+
 @router.post("/channels/webhook/trigger")
 async def trigger_webhook(req: WebhookTriggerRequest, background_tasks: BackgroundTasks):
     async def run_and_callback():
@@ -222,23 +379,43 @@ async def trigger_webhook(req: WebhookTriggerRequest, background_tasks: Backgrou
 @router.get("/settings")
 async def get_current_settings():
     safe_settings = settings.model_dump()
-    # Mask token for security
-    if safe_settings.get("discord_bot_token"):
-        tok = safe_settings["discord_bot_token"]
-        safe_settings["discord_bot_token_masked"] = tok[:6] + "..." + tok[-4:] if len(tok) > 10 else "***"
-        safe_settings["discord_bot_token_set"] = True
-    else:
-        safe_settings["discord_bot_token_masked"] = ""
-        safe_settings["discord_bot_token_set"] = False
+    
+    def _apply_mask(key: str):
+        val = safe_settings.get(key)
+        if val:
+            safe_settings[f"{key}_masked"] = val[:6] + "..." + val[-4:] if len(val) > 10 else "***"
+            safe_settings[f"{key}_set"] = True
+        else:
+            safe_settings[f"{key}_masked"] = ""
+            safe_settings[f"{key}_set"] = False
+
+    for secret_key in [
+        "discord_bot_token",
+        "telegram_bot_token",
+        "whatsapp_access_token",
+        "whatsapp_gateway_token",
+        "whatsapp_verify_token",
+        "imessage_password",
+    ]:
+        _apply_mask(secret_key)
+
     return safe_settings
 
 
 @router.post("/settings")
 async def update_settings(new_settings: Dict[str, Any]):
+    secret_keys = {
+        "discord_bot_token",
+        "telegram_bot_token",
+        "whatsapp_access_token",
+        "whatsapp_gateway_token",
+        "whatsapp_verify_token",
+        "imessage_password",
+    }
     for k, v in new_settings.items():
         if hasattr(settings, k) and not k.startswith("_"):
-            # Do not overwrite token with masked version
-            if k == "discord_bot_token" and ("..." in str(v) or v == "***"):
+            # Do not overwrite sensitive tokens with masked placeholders
+            if k in secret_keys and ("..." in str(v) or v == "***"):
                 continue
             setattr(settings, k, v)
     save_settings(settings)
