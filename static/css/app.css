@@ -4584,22 +4584,31 @@ html[data-theme="light"] .proc-step-content {
   position: relative;
   border-left: 2px solid transparent !important;
   transition: all 0.2s cubic-bezier(0.16, 1, 0.3, 1) !important;
+  color: var(--text-secondary);
 }
 
-.conv-item:hover {
+.conv-item .conv-item-title {
+  color: var(--text-primary);
+  font-weight: 500;
+}
+
+[data-theme="dark"] .conv-item:hover,
+:root:not([data-theme="light"]) .conv-item:hover {
   background: linear-gradient(90deg, rgba(56, 189, 248, 0.06) 0%, rgba(33, 38, 45, 0.5) 100%) !important;
   border-left-color: rgba(56, 189, 248, 0.35) !important;
   transform: translateX(2px);
 }
 
-.conv-item.active {
+[data-theme="dark"] .conv-item.active,
+:root:not([data-theme="light"]) .conv-item.active {
   background: linear-gradient(90deg, rgba(56, 189, 248, 0.14) 0%, var(--surface-card) 100%) !important;
   border-left: 2px solid var(--accent-cyan) !important;
   color: #ffffff !important;
   box-shadow: inset 2px 0 8px rgba(56, 189, 248, 0.12), 0 2px 8px rgba(0, 0, 0, 0.3) !important;
 }
 
-.conv-item.active .conv-item-title {
+[data-theme="dark"] .conv-item.active .conv-item-title,
+:root:not([data-theme="light"]) .conv-item.active .conv-item-title {
   color: #ffffff !important;
   font-weight: 600;
 }
@@ -4637,6 +4646,123 @@ html[data-theme="light"] .proc-step-content {
   border-radius: 9999px;
   color: var(--text-muted);
   float: right;
+}
+
+/* ==========================================================================
+   Light Theme: Sessions, Sidebar & Text High-Contrast Overrides
+   ========================================================================== */
+[data-theme="light"] .sidebar {
+  background-color: #ffffff !important;
+  border-right-color: rgba(0, 0, 0, 0.08) !important;
+}
+
+[data-theme="light"] .sidebar-section-title {
+  color: #475569 !important;
+  font-weight: 700 !important;
+}
+
+[data-theme="light"] .sidebar-session-count {
+  background: rgba(15, 23, 42, 0.07) !important;
+  color: #475569 !important;
+  font-weight: 600 !important;
+}
+
+[data-theme="light"] .conv-item {
+  color: #334155 !important;
+  border-left: 2px solid transparent !important;
+}
+
+[data-theme="light"] .conv-item .conv-item-title {
+  color: #0f172a !important;
+  font-weight: 500;
+}
+
+[data-theme="light"] .conv-item:hover {
+  background: rgba(2, 132, 199, 0.08) !important;
+  border-left-color: #0284c7 !important;
+  color: #0f172a !important;
+  transform: translateX(2px) !important;
+}
+
+[data-theme="light"] .conv-item:hover .conv-item-title {
+  color: #0284c7 !important;
+}
+
+[data-theme="light"] .conv-item.active {
+  background: linear-gradient(90deg, rgba(2, 132, 199, 0.12) 0%, rgba(241, 245, 249, 0.85) 100%) !important;
+  border-left: 3px solid #0284c7 !important;
+  color: #0284c7 !important;
+  box-shadow: inset 2px 0 6px rgba(2, 132, 199, 0.12), 0 1px 4px rgba(0, 0, 0, 0.05) !important;
+}
+
+[data-theme="light"] .conv-item.active .conv-item-title {
+  color: #0369a1 !important;
+  font-weight: 700 !important;
+}
+
+[data-theme="light"] .conv-item .session-branch-tag {
+  background-color: rgba(2, 132, 199, 0.08) !important;
+  border: 1px solid rgba(2, 132, 199, 0.2) !important;
+  color: #0284c7 !important;
+}
+
+[data-theme="light"] .conv-item .session-relative-time {
+  color: #64748b !important;
+}
+
+[data-theme="light"] .conv-item.active .session-branch-tag {
+  background-color: rgba(2, 132, 199, 0.14) !important;
+  border: 1px solid rgba(2, 132, 199, 0.3) !important;
+  color: #0369a1 !important;
+  font-weight: 600;
+}
+
+[data-theme="light"] .conv-item.active .session-relative-time {
+  color: #475569 !important;
+}
+
+[data-theme="light"] .conv-item-delete {
+  color: #94a3b8 !important;
+}
+
+[data-theme="light"] .conv-item-delete:hover {
+  color: #dc2626 !important;
+  background-color: rgba(220, 38, 38, 0.12) !important;
+}
+
+[data-theme="light"] .btn-new-chat {
+  background-color: #f1f5f9 !important;
+  color: #0f172a !important;
+  border-color: rgba(0, 0, 0, 0.1) !important;
+}
+
+[data-theme="light"] .btn-new-chat:hover {
+  background-color: #e2e8f0 !important;
+  color: #0284c7 !important;
+  border-color: #0284c7 !important;
+}
+
+[data-theme="light"] .btn-sidebar-settings {
+  background-color: #f1f5f9 !important;
+  color: #0f172a !important;
+  border-color: rgba(0, 0, 0, 0.1) !important;
+}
+
+[data-theme="light"] .btn-sidebar-settings:hover {
+  background-color: #e2e8f0 !important;
+  border-color: #0284c7 !important;
+}
+
+[data-theme="light"] .brand-google-prefix {
+  color: #64748b !important;
+}
+
+[data-theme="light"] .brand-text {
+  color: #0f172a !important;
+}
+
+[data-theme="light"] .btn-sidebar-close {
+  color: #475569 !important;
 }
 
 /* --- Brand Badge Pulsing --- */
