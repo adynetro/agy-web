@@ -46,7 +46,7 @@ async def websocket_chat_endpoint(websocket: WebSocket, conversation_id: Optiona
                 target_conv_id = data.get("conversation_id")
                 last_seq = int(data.get("last_seq", 0))
 
-                if target_conv_id and target_conv_id != current_conv_id:
+                if target_conv_id != current_conv_id:
                     web_channel.unregister_client(websocket, current_conv_id)
                     current_conv_id = target_conv_id
                     web_channel.register_client(websocket, current_conv_id)
@@ -54,6 +54,15 @@ async def websocket_chat_endpoint(websocket: WebSocket, conversation_id: Optiona
                 if current_conv_id:
                     state = session_manager.get_session_state(current_conv_id, last_seq=last_seq)
                     await websocket.send_text(json.dumps(state))
+                else:
+                    await websocket.send_text(json.dumps({
+                        "type": "session_state",
+                        "conversation_id": None,
+                        "status": "idle",
+                        "is_generating": False,
+                        "events": [],
+                        "terminal_logs": [],
+                    }))
                 continue
 
             if msg_type == "get_terminal_history":

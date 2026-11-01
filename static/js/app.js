@@ -14,6 +14,10 @@ class AgyApp {
     this.selectedCwd = '';
     
     this.isGenerating = false;
+    this.generatingSessions = new Set();
+    this.selectedModel = localStorage.getItem('agy_model') || 'gemini-3.8-flash-high';
+    this.selectedEffort = localStorage.getItem('agy_effort') || 'high';
+    this.selectedMode = localStorage.getItem('agy_mode') || 'auto';
     this.ws = null;
     this.currentAssistantMessage = null;
     this.autoScrollConsole = true;
@@ -46,9 +50,9 @@ class AgyApp {
       btnSend: document.getElementById('btn-send'),
       btnAbort: document.getElementById('btn-abort'),
       btnNewChat: document.getElementById('btn-new-chat'),
-      modelSelect: document.getElementById('model-select'),
-      effortSelect: document.getElementById('effort-select'),
-      modeSelect: document.getElementById('mode-select'),
+      modelSelect: document.getElementById('settings-model') || document.getElementById('model-select'),
+      effortSelect: document.getElementById('settings-effort') || document.getElementById('effort-select'),
+      modeSelect: document.getElementById('settings-mode') || document.getElementById('mode-select'),
       cwdInput: document.getElementById('cwd-input'),
       convTitle: document.getElementById('conv-title'),
       discordPill: document.getElementById('discord-pill'),
@@ -229,14 +233,14 @@ class AgyApp {
     if (themeColorMeta) {
       themeColorMeta.setAttribute('content', theme === 'light' ? '#f8f9fc' : '#0d0e12');
     }
-    if (this.dom.themeIcon && this.dom.themeLabel) {
-      if (theme === 'light') {
-        this.dom.themeIcon.textContent = '🌙';
-        this.dom.themeLabel.textContent = 'Dark';
-      } else {
-        this.dom.themeIcon.textContent = '☀️';
-        this.dom.themeLabel.textContent = 'Light';
-      }
+    if (this.dom.themeIcon) {
+      this.dom.themeIcon.textContent = theme === 'light' ? '🌙' : '☀️';
+    }
+    if (this.dom.themeLabel) {
+      this.dom.themeLabel.textContent = theme === 'light' ? 'Dark' : 'Light';
+    }
+    if (this.dom.btnThemeToggle) {
+      this.dom.btnThemeToggle.title = theme === 'light' ? 'Switch to Dark Theme (🌙)' : 'Switch to Light Theme (☀️)';
     }
   }
 
@@ -426,19 +430,28 @@ class AgyApp {
       });
     }
 
-    this.dom.modelSelect.addEventListener('change', (e) => {
-      this.selectedModel = e.target.value;
-      this.telemetry.modelName = e.target.options[e.target.selectedIndex]?.text || e.target.value;
-      this.updateModelTelemetryUI();
-    });
+    if (this.dom.modelSelect) {
+      this.dom.modelSelect.addEventListener('change', (e) => {
+        this.selectedModel = e.target.value;
+        localStorage.setItem('agy_model', this.selectedModel);
+        this.telemetry.modelName = e.target.options[e.target.selectedIndex]?.text || e.target.value;
+        this.updateModelTelemetryUI();
+      });
+    }
 
-    this.dom.effortSelect.addEventListener('change', (e) => {
-      this.selectedEffort = e.target.value;
-    });
+    if (this.dom.effortSelect) {
+      this.dom.effortSelect.addEventListener('change', (e) => {
+        this.selectedEffort = e.target.value;
+        localStorage.setItem('agy_effort', this.selectedEffort);
+      });
+    }
 
-    this.dom.modeSelect.addEventListener('change', (e) => {
-      this.selectedMode = e.target.value;
-    });
+    if (this.dom.modeSelect) {
+      this.dom.modeSelect.addEventListener('change', (e) => {
+        this.selectedMode = e.target.value;
+        localStorage.setItem('agy_mode', this.selectedMode);
+      });
+    }
 
     this.dom.cwdInput.addEventListener('change', (e) => {
       this.selectedCwd = e.target.value.trim();
@@ -690,22 +703,27 @@ class AgyApp {
       const res = await fetch('/api/settings');
       if (res.ok) {
         const s = await res.json();
+        const savedModel = localStorage.getItem('agy_model');
+        const savedEffort = localStorage.getItem('agy_effort');
+        const savedMode = localStorage.getItem('agy_mode');
+
         if (s.default_cwd) {
           this.selectedCwd = s.default_cwd;
           if (this.dom.cwdInput) this.dom.cwdInput.value = s.default_cwd;
         }
-        if (s.default_model) {
-          this.selectedModel = s.default_model;
-          if (this.dom.modelSelect) this.dom.modelSelect.value = s.default_model;
-        }
-        if (s.default_effort) {
-          this.selectedEffort = s.default_effort;
-          if (this.dom.effortSelect) this.dom.effortSelect.value = s.default_effort;
-        }
-        if (s.default_mode) {
-          this.selectedMode = s.default_mode;
-          if (this.dom.modeSelect) this.dom.modeSelect.value = s.default_mode;
-        }
+
+        this.selectedModel = savedModel || s.default_model || 'gemini-3.8-flash-high';
+        this.selectedEffort = savedEffort || s.default_effort || 'high';
+        this.selectedMode = savedMode || s.default_mode || 'auto';
+
+        const elModel = document.getElementById('settings-model') || this.dom.modelSelect;
+        const elEffort = document.getElementById('settings-effort') || this.dom.effortSelect;
+        const elMode = document.getElementById('settings-mode') || this.dom.modeSelect;
+
+        if (elModel) elModel.value = this.selectedModel;
+        if (elEffort) elEffort.value = this.selectedEffort;
+        if (elMode) elMode.value = this.selectedMode;
+
         if (s.dangerously_skip_permissions !== undefined) {
           this.autoApprove = !!s.dangerously_skip_permissions;
           this.updateAutoApproveUI();
@@ -720,14 +738,17 @@ class AgyApp {
     try {
       const res = await fetch('/api/models');
       this.models = await res.json();
-      this.dom.modelSelect.innerHTML = '';
-      this.models.forEach(m => {
-        const opt = document.createElement('option');
-        opt.value = m.id;
-        opt.textContent = m.name;
-        if (m.id === this.selectedModel) opt.selected = true;
-        this.dom.modelSelect.appendChild(opt);
-      });
+      const elModel = document.getElementById('settings-model') || this.dom.modelSelect;
+      if (elModel && Array.isArray(this.models) && this.models.length > 0) {
+        elModel.innerHTML = '';
+        this.models.forEach(m => {
+          const opt = document.createElement('option');
+          opt.value = m.id;
+          opt.textContent = m.name;
+          if (m.id === this.selectedModel) opt.selected = true;
+          elModel.appendChild(opt);
+        });
+      }
     } catch (e) {
       console.error('Failed to fetch models:', e);
     }
@@ -776,6 +797,21 @@ class AgyApp {
     }
     this.activeConversationId = convId;
     this.lastTerminalSeq = 0;
+
+    const isGenerating = this.generatingSessions.has(convId);
+    this.setGenerating(isGenerating);
+    if (isGenerating) {
+      this.startLiveBanner();
+      this.updateDynamicActionButton('thinking');
+      this.setTerminalIndicator('live', 'LIVE');
+      if (this.dom.btnHeaderCli) this.dom.btnHeaderCli.classList.add('active');
+    } else {
+      this.stopLiveBanner();
+      this.updateDynamicActionButton('idle');
+      this.setTerminalIndicator('idle', 'IDLE');
+      if (this.dom.btnHeaderCli) this.dom.btnHeaderCli.classList.remove('active');
+    }
+
     this.renderConversationList();
 
     // Prepare terminal drawer for selected tab
@@ -831,6 +867,12 @@ class AgyApp {
       this.closeSidebar();
     }
     this.activeConversationId = null;
+    this.setGenerating(false);
+    this.updateDynamicActionButton('idle');
+    this.stopLiveBanner();
+    this.setTerminalIndicator('idle', 'IDLE');
+    if (this.dom.btnHeaderCli) this.dom.btnHeaderCli.classList.remove('active');
+
     this.lastTerminalSeq = 0;
     this.messages = [];
     this.dom.convTitle.textContent = 'New Conversation';
@@ -1021,9 +1063,14 @@ class AgyApp {
     };
     this.messages.push(this.currentAssistantMessage);
 
+    if (this.activeConversationId) {
+      this.generatingSessions.add(this.activeConversationId);
+    }
+    this.renderConversationList();
     this.renderChatMessages();
     this.setGenerating(true);
     this.startLiveBanner();
+    this.updateDynamicActionButton('thinking');
 
     this.appendCliLog({
       level: 'info',
@@ -1061,6 +1108,15 @@ class AgyApp {
 
     if (type === 'session_state') {
       const convId = data.conversation_id;
+      if (convId) {
+        if (data.is_generating || data.status === 'running') {
+          this.generatingSessions.add(convId);
+        } else {
+          this.generatingSessions.delete(convId);
+        }
+        this.renderConversationList();
+      }
+
       if (convId && this.activeConversationId && convId !== this.activeConversationId) {
         return;
       }
@@ -1071,6 +1127,7 @@ class AgyApp {
         this.startLiveBanner();
         const snippet = data.prompt ? `"${data.prompt.slice(0, 35)}..."` : 'Turn in progress';
         this.updateLiveBannerAction(`⚡ Executing: ${snippet}`);
+        this.updateDynamicActionButton('thinking');
         this.setTerminalIndicator('live', data.pid ? `LIVE (PID ${data.pid})` : 'LIVE');
         if (this.dom.btnHeaderCli) {
           this.dom.btnHeaderCli.classList.add('active');
@@ -1078,6 +1135,10 @@ class AgyApp {
       } else {
         this.stopLiveBanner();
         this.setTerminalIndicator('idle', 'IDLE');
+        this.updateDynamicActionButton('idle');
+        if (this.dom.btnHeaderCli) {
+          this.dom.btnHeaderCli.classList.remove('active');
+        }
       }
 
       // Render terminal logs for this selected tab
@@ -1116,13 +1177,20 @@ class AgyApp {
     }
 
     if (type === 'prompt_ack') {
-      if (data.conversation_id && !this.activeConversationId) {
-        this.activeConversationId = data.conversation_id;
-        this.updateTerminalTitle();
+      if (data.conversation_id) {
+        this.generatingSessions.add(data.conversation_id);
+        if (!this.activeConversationId) {
+          this.activeConversationId = data.conversation_id;
+          this.updateTerminalTitle();
+        }
       }
-      this.setGenerating(true);
-      this.startLiveBanner();
-      this.setTerminalIndicator('live', 'LIVE');
+      this.renderConversationList();
+      if (!data.conversation_id || data.conversation_id === this.activeConversationId) {
+        this.setGenerating(true);
+        this.startLiveBanner();
+        this.updateDynamicActionButton('thinking');
+        this.setTerminalIndicator('live', 'LIVE');
+      }
       return;
     }
 
@@ -1218,6 +1286,15 @@ class AgyApp {
         this.updateStreamingMessageUI();
       }
     } else if (type === 'result') {
+      if (data.conversation_id) {
+        this.generatingSessions.delete(data.conversation_id);
+      }
+      this.renderConversationList();
+
+      if (data.conversation_id && this.activeConversationId && data.conversation_id !== this.activeConversationId) {
+        return;
+      }
+
       this.stopLiveBanner();
       if (data.usage) {
         this.telemetry.inputTokens = data.usage.input_tokens || this.telemetry.inputTokens;
@@ -1240,25 +1317,46 @@ class AgyApp {
         this.currentAssistantMessage.duration_seconds = data.duration_seconds;
       }
       this.setGenerating(false);
+      this.updateDynamicActionButton('idle');
       this.renderChatMessages();
       this.fetchConversations();
       this.fetchQuotaMetrics(true);
       this.fetchSystemMetrics();
     } else if (type === 'error') {
+      if (data.conversation_id) {
+        this.generatingSessions.delete(data.conversation_id);
+      }
+      this.renderConversationList();
+
+      if (data.conversation_id && this.activeConversationId && data.conversation_id !== this.activeConversationId) {
+        return;
+      }
+
       this.stopLiveBanner();
       if (this.currentAssistantMessage) {
         this.currentAssistantMessage.isStreaming = false;
         this.currentAssistantMessage.content += `\n\n⚠️ **Error:** ${data.error}`;
       }
       this.setGenerating(false);
+      this.updateDynamicActionButton('idle');
       this.renderChatMessages();
     } else if (type === 'aborted') {
+      if (data.conversation_id) {
+        this.generatingSessions.delete(data.conversation_id);
+      }
+      this.renderConversationList();
+
+      if (data.conversation_id && this.activeConversationId && data.conversation_id !== this.activeConversationId) {
+        return;
+      }
+
       this.stopLiveBanner();
       if (this.currentAssistantMessage) {
         this.currentAssistantMessage.isStreaming = false;
         this.currentAssistantMessage.content += `\n\n*(Execution aborted)*`;
       }
       this.setGenerating(false);
+      this.updateDynamicActionButton('idle');
       this.renderChatMessages();
     }
   }
@@ -1383,6 +1481,7 @@ class AgyApp {
 
     this.conversations.forEach(conv => {
       const isRunning = (this.isGenerating && conv.id === this.activeConversationId) ||
+        this.generatingSessions.has(conv.id) ||
         (this.processes || []).some(p => p.conversation_id === conv.id && (p.state === 'R' || p.is_engine_managed));
 
       const item = document.createElement('div');
@@ -1667,34 +1766,37 @@ class AgyApp {
     const container = document.createElement('div');
     container.className = 'terminal-card-output';
 
-    const isError = output && (output.includes('Command exited with code 1') || output.includes('exit status 1'));
+    const outputStr = output || '';
+    const isError = outputStr && (outputStr.includes('Command exited with code 1') || outputStr.includes('exit status 1') || outputStr.includes('FAILED') || outputStr.includes('Error:'));
     const exitBadge = isDone ?
       (isError ? '<span class="action-status-pill status-error">✕ exit 1</span>' : '<span class="action-status-pill status-success">✔ exit 0</span>') :
       '<span class="action-status-pill status-running">⚡ running</span>';
 
+    const displayOutput = outputStr.trim() ? outputStr : (isDone ? '(Command completed with no stdout/stderr)' : '(executing command...)');
+
     container.innerHTML = `
       <div class="terminal-titlebar">
-        <div style="display: flex; align-items: center; gap: 10px;">
+        <div style="display: flex; align-items: center; gap: 10px; overflow: hidden; flex: 1;">
           <div class="terminal-dots">
             <span class="terminal-dot dot-red"></span>
             <span class="terminal-dot dot-yellow"></span>
             <span class="terminal-dot dot-green"></span>
           </div>
-          <span class="terminal-cmd-display">$ ${this.escapeHtml(cmd)}</span>
+          <span class="terminal-cmd-display" title="$ ${this.escapeHtml(cmd)}">$ ${this.escapeHtml(cmd)}</span>
         </div>
-        <div style="display: flex; align-items: center; gap: 8px;">
+        <div style="display: flex; align-items: center; gap: 8px; flex-shrink: 0;">
           ${exitBadge}
           <button class="batch-peek-btn btn-copy-terminal" title="Copy output">Copy</button>
         </div>
       </div>
-      <pre class="terminal-text-block"><code>${this.escapeHtml(output || '(executing command...)')}</code></pre>
+      <pre class="terminal-text-block"><code>${this.escapeHtml(displayOutput)}</code></pre>
     `;
 
     const copyBtn = container.querySelector('.btn-copy-terminal');
     if (copyBtn) {
       copyBtn.onclick = (e) => {
         e.stopPropagation();
-        navigator.clipboard.writeText(output || cmd).then(() => {
+        navigator.clipboard.writeText(outputStr || cmd).then(() => {
           copyBtn.textContent = 'Copied!';
           setTimeout(() => copyBtn.textContent = 'Copy', 1500);
         });
@@ -1702,6 +1804,38 @@ class AgyApp {
     }
 
     return container;
+  }
+
+  createChatThinkingElement(msg) {
+    const card = document.createElement('div');
+    card.className = 'chat-thinking-center-card';
+
+    let activeTool = null;
+    if (msg && msg.tool_calls && msg.tool_calls.length > 0) {
+      const active = msg.tool_calls.find(t => t.state === 'ACTIVE');
+      if (active) activeTool = active.name;
+    }
+
+    const title = activeTool ? `Executing ${activeTool.replace(/_/g, ' ')}...` : 'Antigravity is thinking...';
+    const subtitle = activeTool ? 'Running homelab action in background' : 'Synthesizing response and evaluating instructions';
+
+    card.innerHTML = `
+      <div class="thinking-orbital-container">
+        <div class="thinking-orbital-glow"></div>
+        <div class="thinking-orbital-ring ring-outer"></div>
+        <div class="thinking-orbital-ring ring-middle"></div>
+        <div class="thinking-orbital-core">
+          <svg viewBox="0 0 112 115" class="thinking-mark-svg" fill="none">
+            <path d="M89.6992 93.695C94.3659 97.195 101.366 94.8617 94.9492 88.445C75.6992 69.7783 79.7825 18.445 55.8659 18.445C31.9492 18.445 36.0325 69.7783 16.7825 88.445C9.78251 95.445 17.3658 97.195 22.0325 93.695C40.1159 81.445 38.9492 59.8617 55.8659 59.8617C72.7825 59.8617 71.6159 81.445 89.6992 93.695Z" fill="#3186FF" />
+          </svg>
+        </div>
+      </div>
+      <div class="thinking-label-group">
+        <div class="thinking-label-primary">${this.escapeHtml(title)}</div>
+        <div class="thinking-label-secondary">${this.escapeHtml(subtitle)}</div>
+      </div>
+    `;
+    return card;
   }
 
   createActionCardElement(tc) {
@@ -1746,7 +1880,7 @@ class AgyApp {
       }
     }
 
-    const targetDesc = (tc.args && (tc.args.Path || tc.args.AbsolutePath || tc.args.CommandLine || tc.args.TargetFile)) || tc.summary || '';
+    const targetDesc = (tc.args && (tc.args.Path || tc.args.AbsolutePath || tc.args.CommandLine || tc.args.command || tc.args.cmd || tc.args.TargetFile)) || tc.summary || '';
 
     const header = document.createElement('div');
     header.className = 'action-header';
@@ -1764,12 +1898,20 @@ class AgyApp {
 
     const body = document.createElement('div');
     body.className = 'action-body';
-    body.style.display = isDone ? 'none' : 'block';
+
+    // For run_command, ALWAYS keep visible and open by default so the user sees command contents!
+    const isCommand = this.isCommandTool(tc.name);
+    if (isCommand) {
+      body.style.display = 'block';
+      card.classList.add('open');
+    } else {
+      body.style.display = isDone ? 'none' : 'block';
+    }
 
     if (this.isWriteTool(tc.name)) {
       body.appendChild(this.createDiffViewer(targetDesc, tc.args, tc.output));
-    } else if (this.isCommandTool(tc.name)) {
-      const cmd = (tc.args && tc.args.CommandLine) || targetDesc || 'run_command';
+    } else if (isCommand) {
+      const cmd = (tc.args && (tc.args.CommandLine || tc.args.command || tc.args.cmd)) || targetDesc || 'run_command';
       body.appendChild(this.createTerminalOutput(cmd, tc.output, isDone, durMs));
     } else {
       const pre = document.createElement('pre');
@@ -1856,12 +1998,14 @@ class AgyApp {
         } catch (e) {
           textEl.textContent = msg.content;
         }
+        if (msg.isStreaming) {
+          const pulse = document.createElement('span');
+          pulse.className = 'streaming-pulse';
+          textEl.appendChild(pulse);
+        }
         bubble.appendChild(textEl);
       } else if (msg.isStreaming) {
-        const textEl = document.createElement('div');
-        textEl.className = 'message-text markdown-body';
-        textEl.innerHTML = '<span class="streaming-pulse"></span>';
-        bubble.appendChild(textEl);
+        bubble.appendChild(this.createChatThinkingElement(msg));
       }
     }
 
@@ -2123,7 +2267,19 @@ class AgyApp {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(payload)
       });
-      alert('Settings saved!');
+      this.selectedModel = payload.default_model;
+      this.selectedEffort = payload.default_effort;
+      this.selectedMode = payload.default_mode;
+      if (payload.default_cwd) this.selectedCwd = payload.default_cwd;
+      localStorage.setItem('agy_model', this.selectedModel);
+      localStorage.setItem('agy_effort', this.selectedEffort);
+      localStorage.setItem('agy_mode', this.selectedMode);
+      if (elModel && elModel.options && elModel.selectedIndex >= 0) {
+        this.telemetry.modelName = elModel.options[elModel.selectedIndex].text;
+      } else {
+        this.telemetry.modelName = this.selectedModel;
+      }
+      this.updateModelTelemetryUI();
       if (this.dom.modalSettings) this.dom.modalSettings.style.display = 'none';
     } catch (e) {
       alert('Error saving settings: ' + e);

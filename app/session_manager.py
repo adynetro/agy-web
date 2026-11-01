@@ -49,7 +49,9 @@ def extract_terminal_history_from_disk(conversation_id: str, limit: int = 150) -
     if not conversation_id:
         return []
 
-    log_file = BRAIN_DIR / conversation_id / ".system_generated" / "logs" / "transcript.jsonl"
+    full_log_file = BRAIN_DIR / conversation_id / ".system_generated" / "logs" / "transcript_full.jsonl"
+    compact_log_file = BRAIN_DIR / conversation_id / ".system_generated" / "logs" / "transcript.jsonl"
+    log_file = full_log_file if full_log_file.exists() else compact_log_file
     if not log_file.exists():
         return []
 

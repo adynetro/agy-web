@@ -122,7 +122,9 @@ class ConversationManager:
         if conversation_id in deleted_ids:
             return None
 
-        log_file = self.brain_dir / conversation_id / ".system_generated" / "logs" / "transcript.jsonl"
+        full_log_file = self.brain_dir / conversation_id / ".system_generated" / "logs" / "transcript_full.jsonl"
+        compact_log_file = self.brain_dir / conversation_id / ".system_generated" / "logs" / "transcript.jsonl"
+        log_file = full_log_file if full_log_file.exists() else compact_log_file
         if not log_file.exists():
             # Check if conversation exists in db
             summary = self._get_db_summary(conversation_id)

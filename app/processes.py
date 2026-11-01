@@ -231,7 +231,7 @@ class ProcessManager:
 
         # 1. If we have a conversation_id, read latest entries from transcript.jsonl
         if conv_id:
-            transcript_path = (
+            logs_dir = (
                 Path.home()
                 / ".gemini"
                 / "antigravity-cli"
@@ -239,8 +239,9 @@ class ProcessManager:
                 / conv_id
                 / ".system_generated"
                 / "logs"
-                / "transcript.jsonl"
             )
+            full_path = logs_dir / "transcript_full.jsonl"
+            transcript_path = full_path if full_path.exists() else (logs_dir / "transcript.jsonl")
 
             if transcript_path.exists():
                 try:

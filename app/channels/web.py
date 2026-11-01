@@ -93,6 +93,7 @@ class WebChannel(BaseChannel):
         if conv_id:
             await self.broadcast(conv_id, {
                 "type": "token",
+                "conversation_id": conv_id,
                 "delta": delta,
             })
 
@@ -101,6 +102,7 @@ class WebChannel(BaseChannel):
         if conv_id:
             await self.broadcast(conv_id, {
                 "type": "tool",
+                "conversation_id": conv_id,
                 "tool_name": tool_name,
                 "tool_info": tool_info,
                 "state": state,
@@ -111,6 +113,7 @@ class WebChannel(BaseChannel):
         if conv_id:
             await self.broadcast(conv_id, {
                 "type": "result",
+                "conversation_id": conv_id,
                 "result": result,
             })
 
@@ -119,6 +122,7 @@ class WebChannel(BaseChannel):
         if conv_id:
             await self.broadcast(conv_id, {
                 "type": "error",
+                "conversation_id": conv_id,
                 "error": error,
             })
 
