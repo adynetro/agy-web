@@ -13,7 +13,7 @@
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=JetBrains+Mono:ital,wght@0,400;0,500;0,600;0,700;1,400&family=Material+Symbols+Outlined:opsz,wght,FILL,GRAD@20..48,100..700,0..1,-50..200&display=swap" rel="stylesheet">
   <link rel="stylesheet" href="/static/vendor/github-dark.min.css">
-  <link rel="stylesheet" href="/static/css/app.css?v=5.2">
+  <link rel="stylesheet" href="/static/css/app.css?v=5.3">
 </head>
 <body>
   <div id="app">
@@ -256,7 +256,7 @@
               id="prompt-input"
               class="command-deck-textarea"
               rows="1"
-              placeholder="Ask Antigravity to build, debug, or explore... (Enter to run, Shift+Enter for newline)"
+              placeholder="Ask Antigravity to build, debug, or explore..."
             ></textarea>
 
             <div class="command-deck-actions">
@@ -271,20 +271,6 @@
                 <span class="action-text">Send</span>
                 <span class="send-icon">↑</span>
               </button>
-            </div>
-          </div>
-
-          <!-- Deck Footer: CWD & Precision Keyboard Shortcut Cues -->
-          <div class="command-deck-footer">
-            <div class="cwd-badge" title="Workspace Working Directory">
-              <span class="cwd-icon">📂</span>
-              <span class="cwd-label">CWD:</span>
-              <input id="cwd-input" type="text" class="cwd-input" placeholder="Working directory..." />
-            </div>
-            <div class="command-deck-cues">
-              <span class="kbd-cue"><kbd>Enter</kbd> to run</span>
-              <span class="kbd-divider">•</span>
-              <span class="kbd-cue"><kbd>Shift+Enter</kbd> for newline</span>
             </div>
           </div>
         </div>
@@ -1064,6 +1050,6 @@
 
   <script src="/static/vendor/marked.min.js"></script>
   <script src="/static/vendor/highlight.min.js"></script>
-  <script src="/static/js/app.js?v=5.1"></script>
+  <script src="/static/js/app.js?v=5.2"></script>
 </body>
 </html>

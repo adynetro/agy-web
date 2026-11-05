@@ -466,9 +466,11 @@ class AgyApp {
       });
     }
 
-    this.dom.cwdInput.addEventListener('change', (e) => {
-      this.selectedCwd = e.target.value.trim();
-    });
+    if (this.dom.cwdInput) {
+      this.dom.cwdInput.addEventListener('change', (e) => {
+        this.selectedCwd = e.target.value.trim();
+      });
+    }
 
     // Quick suggestion cards
     document.querySelectorAll('.suggestion-card').forEach(card => {
@@ -1523,7 +1525,7 @@ class AgyApp {
     if (val) {
       this.dom.promptInput.placeholder = 'Model is executing... Type /btw <hint> or press Enter to steer';
     } else {
-      this.dom.promptInput.placeholder = 'Type instructions or prompts... (Shift+Enter for newline)';
+      this.dom.promptInput.placeholder = 'Type instructions or prompts...';
       this.currentAssistantMessage = null;
       this.dom.promptInput.focus();
     }
