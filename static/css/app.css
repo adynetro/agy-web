@@ -3289,14 +3289,14 @@ input:checked + .slider:before {
 
   .command-deck-input-row {
     gap: 8px;
-    align-items: flex-end;
+    align-items: center;
   }
 
   .command-deck-textarea {
     font-size: 16px;
-    min-height: 38px;
+    min-height: 28px;
     line-height: 1.4;
-    padding: 4px 0;
+    padding: 6px 0;
   }
 
   .command-deck-actions {
@@ -5692,12 +5692,12 @@ html[data-theme="light"] .proc-step-content {
   -webkit-backdrop-filter: blur(16px);
   border: 1px solid var(--dock-border);
   box-shadow: var(--dock-shadow);
-  border-radius: 18px;
-  padding: 12px 18px 10px 18px;
+  border-radius: 16px;
+  padding: 8px 14px;
   display: flex;
   flex-direction: column;
-  gap: 10px;
   transition: border-color 0.2s ease, box-shadow 0.2s ease, background-color 0.2s ease;
+  box-sizing: border-box;
 }
 
 .command-deck-dock:focus-within {
@@ -5758,7 +5758,7 @@ html[data-theme="light"] .proc-step-content {
 
 .command-deck-input-row {
   display: flex;
-  align-items: flex-end;
+  align-items: center;
   gap: 12px;
 }
 
@@ -5768,13 +5768,13 @@ html[data-theme="light"] .proc-step-content {
   border: none;
   color: var(--text-primary);
   font-family: var(--font-sans);
-  font-size: 14.5px;
+  font-size: 15px;
   line-height: 1.5;
   resize: none;
   min-height: 24px;
   max-height: 180px;
   outline: none;
-  padding: 4px 0;
+  padding: 8px 4px;
 }
 
 .command-deck-textarea::placeholder {
@@ -5786,7 +5786,7 @@ html[data-theme="light"] .proc-step-content {
   align-items: center;
   gap: 8px;
   flex-shrink: 0;
-  margin-bottom: 2px;
+  margin-bottom: 0;
 }
 
 .action-spinner {
@@ -5808,9 +5808,9 @@ html[data-theme="light"] .proc-step-content {
   align-items: center;
   justify-content: center;
   gap: 8px;
-  padding: 0 22px;
-  height: 44px;
-  min-width: 96px;
+  padding: 0 20px;
+  height: 40px;
+  min-width: 90px;
   background: var(--accent-gradient, var(--accent-primary)) !important;
   color: #ffffff !important;
   font-weight: 600;
@@ -5876,7 +5876,7 @@ html[data-theme="light"] .proc-step-content {
 }
 
 .command-deck-actions .btn-abort {
-  height: 44px;
+  height: 40px;
   padding: 0 16px;
   font-size: 14px;
   font-weight: 600;
@@ -5884,7 +5884,7 @@ html[data-theme="light"] .proc-step-content {
 }
 
 .command-deck-actions .btn-btw {
-  height: 44px;
+  height: 40px;
   padding: 0 16px;
   font-size: 14px;
   font-weight: 600;
@@ -6115,7 +6115,7 @@ html[data-theme="light"] .proc-step-content {
 
   .command-deck-input-row {
     gap: 8px !important;
-    align-items: flex-end !important;
+    align-items: center !important;
     width: 100% !important;
     max-width: 100% !important;
     min-width: 0 !important;
@@ -6125,9 +6125,9 @@ html[data-theme="light"] .proc-step-content {
   /* 16px font-size prevents iOS Safari from automatically zooming into the page on focus */
   .command-deck-textarea {
     font-size: 16px !important;
-    min-height: 38px !important;
+    min-height: 28px !important;
     line-height: 1.4 !important;
-    padding: 4px 0 !important;
+    padding: 6px 0 !important;
     width: 100% !important;
     min-width: 0 !important;
   }
@@ -6140,19 +6140,19 @@ html[data-theme="light"] .proc-step-content {
 
   .command-deck-actions .btn-send,
   .command-deck-actions .dynamic-action-btn {
-    height: 42px !important;
+    height: 38px !important;
     min-width: 76px !important;
     padding: 0 14px !important;
   }
 
   .command-deck-actions .btn-abort {
-    height: 42px !important;
+    height: 38px !important;
     padding: 0 10px !important;
     font-size: 13px !important;
   }
 
   .command-deck-actions .btn-btw {
-    height: 42px !important;
+    height: 38px !important;
     padding: 0 10px !important;
     font-size: 13px !important;
   }
