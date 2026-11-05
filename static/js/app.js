@@ -669,6 +669,9 @@ class AgyApp {
     document.getElementById('btn-save-telegram')?.addEventListener('click', () => this.saveTelegramConfig());
     document.getElementById('btn-save-whatsapp')?.addEventListener('click', () => this.saveWhatsAppConfig());
     document.getElementById('btn-save-imessage')?.addEventListener('click', () => this.saveiMessageConfig());
+    document.getElementById('btn-save-webhook')?.addEventListener('click', () => this.saveWebhookConfig());
+    document.getElementById('btn-regen-webhook-key')?.addEventListener('click', () => this.regenerateWebhookKey());
+    document.getElementById('btn-toggle-webhook-key-vis')?.addEventListener('click', () => this.toggleWebhookKeyVisibility());
 
     // Channel Subtab switching
     document.querySelectorAll('.channel-sub-btn').forEach(btn => {
@@ -715,6 +718,7 @@ class AgyApp {
     bindCopyBtn('btn-copy-wa-webhook', 'whatsapp-webhook-url-display');
     bindCopyBtn('btn-copy-im-webhook', 'imessage-webhook-url-display');
     bindCopyBtn('btn-copy-webhook-url', 'webhook-trigger-url-display');
+    bindCopyBtn('btn-copy-webhook-key', 'webhook-api-key-input');
 
     // Settings save button
     document.getElementById('btn-save-settings').addEventListener('click', () => this.saveSettings());
@@ -887,7 +891,16 @@ class AgyApp {
     } else if (channelId === 'imessage') {
       sub.textContent = data.status === 'online' ? 'BlueBubbles' : (data.status ? data.status.toUpperCase() : 'Offline');
     } else if (channelId === 'webhook') {
-      sub.textContent = 'Active';
+      if (!data || data.enabled === false || data.status === 'offline') {
+        sub.textContent = 'Offline';
+        dot.className = 'status-indicator offline';
+      } else if (data.require_auth) {
+        sub.textContent = 'Protected';
+        dot.className = 'status-indicator online';
+      } else {
+        sub.textContent = 'Open (No Auth)';
+        dot.className = 'status-indicator warning';
+      }
     }
   }
 
@@ -2329,12 +2342,14 @@ class AgyApp {
 
   async loadChannelsForm() {
     try {
-      const [settingsRes, chRes] = await Promise.all([
+      const [settingsRes, chRes, keyRes] = await Promise.all([
         fetch('/api/settings'),
-        fetch('/api/channels')
+        fetch('/api/channels'),
+        fetch('/api/channels/webhook/key').catch(() => null)
       ]);
       const s = await settingsRes.json();
       const channels = await chRes.json();
+      const keyData = keyRes && keyRes.ok ? await keyRes.json() : null;
 
       // Populate Webhook URLs with current origin
       const origin = window.location.origin;
@@ -2351,6 +2366,7 @@ class AgyApp {
       this.populateTelegramForm(s, channels.find(c => c.id === 'telegram'));
       this.populateWhatsAppForm(s, channels.find(c => c.id === 'whatsapp'));
       this.populateiMessageForm(s, channels.find(c => c.id === 'imessage'));
+      this.populateWebhookForm(s, channels.find(c => c.id === 'webhook'), keyData);
     } catch (e) {
       console.error('Failed to load channels info:', e);
     }
@@ -2711,6 +2727,127 @@ class AgyApp {
       }
     } catch (e) {
       alert('Error updating iMessage config: ' + e);
+    }
+  }
+
+  populateWebhookForm(s, webhook, keyData) {
+    const elToggle = document.getElementById('webhook-enable-toggle');
+    const elRequireAuth = document.getElementById('webhook-require-auth-toggle');
+    const elKeyInput = document.getElementById('webhook-api-key-input');
+    const elAllowedIps = document.getElementById('webhook-allowed-ips-input');
+    const elLiveDot = document.getElementById('webhook-live-dot');
+    const elLiveText = document.getElementById('webhook-live-status-text');
+    const elBadge = document.getElementById('webhook-security-badge');
+
+    const enabled = s.webhook_enabled !== undefined ? !!s.webhook_enabled : true;
+    const requireAuth = s.webhook_require_auth !== undefined ? !!s.webhook_require_auth : true;
+    const apiKey = (keyData && keyData.api_key) || s.webhook_api_key || '';
+    const allowedIps = (keyData && keyData.allowed_ips) || s.webhook_allowed_ips || [];
+
+    if (elToggle) elToggle.checked = enabled;
+    if (elRequireAuth) elRequireAuth.checked = requireAuth;
+    if (elKeyInput) elKeyInput.value = apiKey;
+    if (elAllowedIps) elAllowedIps.value = Array.isArray(allowedIps) ? allowedIps.join(', ') : '';
+
+    if (elLiveDot && elLiveText && elBadge) {
+      if (!enabled) {
+        elLiveDot.className = 'status-indicator offline';
+        elLiveText.textContent = 'OFFLINE';
+        elBadge.style.background = 'rgba(239, 68, 68, 0.15)';
+        elBadge.style.color = 'var(--danger)';
+        elBadge.textContent = 'DISABLED';
+      } else if (requireAuth) {
+        elLiveDot.className = 'status-indicator online';
+        elLiveText.textContent = 'ONLINE';
+        elBadge.style.background = 'rgba(0, 185, 92, 0.15)';
+        elBadge.style.color = 'var(--success)';
+        elBadge.textContent = '🔒 PROTECTED';
+      } else {
+        elLiveDot.className = 'status-indicator warning';
+        elLiveText.textContent = 'ONLINE (UNPROTECTED)';
+        elBadge.style.background = 'rgba(245, 158, 11, 0.15)';
+        elBadge.style.color = 'var(--warning)';
+        elBadge.textContent = '⚠️ NO AUTH';
+      }
+    }
+
+    // Update curl snippet with current URL and key
+    const origin = window.location.origin;
+    const triggerUrl = `${origin}/api/channels/webhook/trigger`;
+    document.querySelectorAll('.webhook-display-url').forEach(el => el.textContent = triggerUrl);
+    document.querySelectorAll('.webhook-display-key').forEach(el => el.textContent = apiKey ? apiKey : '<YOUR_API_KEY>');
+  }
+
+  toggleWebhookKeyVisibility() {
+    const input = document.getElementById('webhook-api-key-input');
+    const btn = document.getElementById('btn-toggle-webhook-key-vis');
+    if (!input) return;
+    if (input.type === 'password') {
+      input.type = 'text';
+      if (btn) btn.textContent = '🙈';
+    } else {
+      input.type = 'password';
+      if (btn) btn.textContent = '👁️';
+    }
+  }
+
+  async regenerateWebhookKey() {
+    if (!confirm('Are you sure you want to regenerate the Webhook API Key? Any external systems, Home Assistant automations, or CI/CD pipelines using the current key will be rejected until updated with the new key.')) {
+      return;
+    }
+    try {
+      const res = await fetch('/api/channels/webhook/regenerate-token', { method: 'POST' });
+      if (res.ok) {
+        const data = await res.json();
+        const input = document.getElementById('webhook-api-key-input');
+        if (input) input.value = data.api_key;
+        document.querySelectorAll('.webhook-display-key').forEach(el => el.textContent = data.api_key);
+        alert('New Webhook API Key generated and saved successfully! Please copy it and update your external callers.');
+        this.fetchChannels();
+        this.loadChannelsForm();
+      } else {
+        alert('Failed to regenerate token.');
+      }
+    } catch (e) {
+      alert('Error regenerating token: ' + e);
+    }
+  }
+
+  async saveWebhookConfig() {
+    const elToggle = document.getElementById('webhook-enable-toggle');
+    const elRequireAuth = document.getElementById('webhook-require-auth-toggle');
+    const elKeyInput = document.getElementById('webhook-api-key-input');
+    const elAllowedIps = document.getElementById('webhook-allowed-ips-input');
+
+    const enabled = elToggle ? elToggle.checked : true;
+    const requireAuth = elRequireAuth ? elRequireAuth.checked : true;
+    const apiKey = elKeyInput ? elKeyInput.value.trim() : '';
+    const ipsStr = elAllowedIps ? elAllowedIps.value.trim() : '';
+    const allowedIps = ipsStr ? ipsStr.split(',').map(s => s.trim()).filter(Boolean) : [];
+
+    const payload = {
+      enabled,
+      require_auth: requireAuth,
+      allowed_ips: allowedIps,
+    };
+    if (apiKey) payload.api_key = apiKey;
+
+    try {
+      const res = await fetch('/api/channels/webhook/config', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(payload)
+      });
+      if (res.ok) {
+        alert('Webhook security settings saved successfully!');
+        this.fetchChannels();
+        this.loadChannelsForm();
+      } else {
+        const err = await res.json();
+        alert('Failed to save webhook settings: ' + (err.detail || 'Unknown error'));
+      }
+    } catch (e) {
+      alert('Error saving webhook config: ' + e);
     }
   }
 

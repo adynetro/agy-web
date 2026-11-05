@@ -1,6 +1,7 @@
 from __future__ import annotations
 import json
 import os
+import secrets
 from pathlib import Path
 from typing import Any, Dict, List
 from pydantic import BaseModel, Field
@@ -68,6 +69,12 @@ class Settings(BaseModel):
     imessage_allowed_senders: List[str] = Field(default_factory=list, description="Allowed iMessage Apple IDs or phone numbers (empty for all)")
     imessage_show_tools: bool = Field(default=False, description="Send tool execution updates in iMessage")
 
+    # Webhook Channel & Security Settings
+    webhook_enabled: bool = Field(default=True, description="Whether the HTTP webhook trigger endpoint is active")
+    webhook_api_key: str = Field(default_factory=lambda: f"agy_sec_{secrets.token_urlsafe(24)}", description="Secret API key required to trigger webhook executions")
+    webhook_require_auth: bool = Field(default=True, description="Enforce API key authorization on all inbound webhook triggers")
+    webhook_allowed_ips: List[str] = Field(default_factory=list, description="Optional IP/CIDR whitelist for webhook triggers")
+
     # Custom Branding Settings
     brand_prefix: str = Field(default="Google", description="Brand prefix or organization name")
     brand_name: str = Field(default="Antigravity", description="Primary brand or platform name")
@@ -111,6 +118,10 @@ def load_settings() -> Settings:
         with open(SETTINGS_PATH, "r", encoding="utf-8") as f:
             data = json.load(f)
             loaded = Settings(**data)
+            # Ensure a secure webhook_api_key exists
+            if not loaded.webhook_api_key:
+                loaded.webhook_api_key = f"agy_sec_{secrets.token_urlsafe(24)}"
+                save_settings(loaded)
             # If loaded agy_bin does not exist, fallback to detected agy binary
             if not os.path.exists(loaded.agy_bin):
                 detected = find_agy_bin()

@@ -19,18 +19,28 @@ class WebhookChannel(BaseChannel):
         self.is_enabled = True
 
     async def start(self) -> None:
-        self.is_enabled = True
+        from app.config import settings
+        self.is_enabled = getattr(settings, "webhook_enabled", True)
 
     async def stop(self) -> None:
         self.is_enabled = False
 
     def get_status(self) -> Dict[str, Any]:
+        from app.config import settings
+        enabled = getattr(settings, "webhook_enabled", True)
+        require_auth = getattr(settings, "webhook_require_auth", True)
+        api_key = getattr(settings, "webhook_api_key", "")
+        allowed_ips = getattr(settings, "webhook_allowed_ips", [])
         return {
             "id": self.channel_id,
             "name": self.channel_name,
-            "enabled": self.is_enabled,
-            "status": "online",
+            "enabled": enabled,
+            "require_auth": require_auth,
+            "has_api_key": bool(api_key),
+            "status": "online" if enabled else "offline",
             "endpoint": "/api/channels/webhook/trigger",
+            "allowed_ips_count": len(allowed_ips),
+            "auth_mode": "bearer_or_api_key" if require_auth else "none",
         }
 
     async def send_callback(self, callback_url: str, payload: Dict[str, Any]) -> bool:

@@ -5,6 +5,9 @@ import platform
 import asyncio
 import time
 import re
+import hmac
+import secrets
+import ipaddress
 from typing import Any, Dict, List, Optional
 from pathlib import Path
 from fastapi import APIRouter, HTTPException, BackgroundTasks, UploadFile, File, Request, Response
@@ -72,8 +75,16 @@ class IMessageConfigRequest(BaseModel):
     show_tools: Optional[bool] = Field(None, description="Show tool updates")
 
 
+class WebhookConfigRequest(BaseModel):
+    enabled: bool = Field(..., description="Enable or disable generic webhook trigger")
+    api_key: Optional[str] = Field(None, description="Secret API key / bearer token")
+    require_auth: Optional[bool] = Field(None, description="Enforce API key authorization")
+    allowed_ips: Optional[List[str]] = Field(None, description="Allowed client IP / CIDR list")
+
+
 class WebhookTriggerRequest(BaseModel):
     prompt: str = Field(..., description="Prompt to execute")
+    token: Optional[str] = Field(None, description="Optional API key / token passed in JSON body")
     conversation_id: Optional[str] = Field(None, description="Optional conversation ID")
     callback_url: Optional[str] = Field(None, description="URL to POST result to when completed")
     model: Optional[str] = Field(None, description="Optional model ID")
@@ -348,6 +359,14 @@ async def configure_imessage(req: IMessageConfigRequest):
 
 @router.post("/channels/imessage/webhook")
 async def handle_imessage_webhook(request: Request):
+    expected_pw = getattr(settings, "imessage_password", "").strip()
+    if expected_pw and getattr(settings, "imessage_enabled", False):
+        pw = request.query_params.get("password") or request.headers.get("x-password") or ""
+        auth = request.headers.get("Authorization", "")
+        if auth.startswith("Bearer "):
+            pw = auth[7:].strip()
+        if pw and not hmac.compare_digest(pw, expected_pw):
+            raise HTTPException(status_code=401, detail="Unauthorized: iMessage password mismatch")
     try:
         body = await request.json()
     except Exception:
@@ -356,8 +375,107 @@ async def handle_imessage_webhook(request: Request):
     return res
 
 
+def verify_webhook_authorization(request: Request, body_token: Optional[str] = None) -> None:
+    """
+    Validates inbound webhook authorization:
+    1. Checks if webhook channel is enabled (403 Forbidden if disabled).
+    2. Validates client IP against allowed IPs if configured (403 Forbidden).
+    3. Checks authorization token (Bearer, X-API-Key, query param, or body token).
+    """
+    if not getattr(settings, "webhook_enabled", True):
+        raise HTTPException(
+            status_code=403,
+            detail="Forbidden: Webhook trigger channel is disabled in server settings"
+        )
+
+    # IP whitelist check
+    allowed_ips = getattr(settings, "webhook_allowed_ips", [])
+    if allowed_ips:
+        client_ip = request.client.host if request.client else ""
+        forwarded = request.headers.get("x-forwarded-for")
+        if forwarded:
+            client_ip = forwarded.split(",")[0].strip()
+
+        ip_matched = False
+        for allowed in allowed_ips:
+            try:
+                if "/" in allowed:
+                    if ipaddress.ip_address(client_ip) in ipaddress.ip_network(allowed, strict=False):
+                        ip_matched = True
+                        break
+                elif client_ip == allowed:
+                    ip_matched = True
+                    break
+            except Exception:
+                if client_ip == allowed:
+                    ip_matched = True
+                    break
+        if not ip_matched:
+            raise HTTPException(
+                status_code=403,
+                detail=f"Forbidden: Client IP '{client_ip}' is not authorized to trigger webhooks"
+            )
+
+    if not getattr(settings, "webhook_require_auth", True):
+        return
+
+    expected_key = getattr(settings, "webhook_api_key", "").strip()
+    if not expected_key:
+        raise HTTPException(
+            status_code=500,
+            detail="Webhook authorization is enforced but no webhook API key is configured on server"
+        )
+
+    # Extract token from headers, query params, or body
+    provided_key = None
+
+    # 1. Authorization: Bearer <token> or Token <token>
+    auth_header = request.headers.get("Authorization", "")
+    if auth_header.startswith("Bearer "):
+        provided_key = auth_header[7:].strip()
+    elif auth_header.startswith("Token "):
+        provided_key = auth_header[6:].strip()
+
+    # 2. X-API-Key or X-Webhook-Secret or X-Agy-Token
+    if not provided_key:
+        provided_key = (
+            request.headers.get("X-API-Key")
+            or request.headers.get("X-Webhook-Secret")
+            or request.headers.get("X-Agy-Token")
+            or request.headers.get("x-api-key")
+        )
+
+    # 3. Query param: ?token=... or ?api_key=...
+    if not provided_key:
+        provided_key = request.query_params.get("token") or request.query_params.get("api_key")
+
+    # 4. JSON body token
+    if not provided_key and body_token:
+        provided_key = body_token.strip()
+
+    if not provided_key:
+        raise HTTPException(
+            status_code=401,
+            detail="Unauthorized: Missing webhook API key. Provide via 'Authorization: Bearer <key>', 'X-API-Key: <key>' header, or '?token=<key>' parameter.",
+            headers={"WWW-Authenticate": "Bearer"},
+        )
+
+    if not hmac.compare_digest(provided_key, expected_key):
+        raise HTTPException(
+            status_code=401,
+            detail="Unauthorized: Invalid webhook API key.",
+            headers={"WWW-Authenticate": "Bearer"},
+        )
+
+
 @router.post("/channels/webhook/trigger")
-async def trigger_webhook(req: WebhookTriggerRequest, background_tasks: BackgroundTasks):
+async def trigger_webhook(
+    request: Request,
+    req: WebhookTriggerRequest,
+    background_tasks: BackgroundTasks
+):
+    verify_webhook_authorization(request, body_token=req.token)
+
     async def run_and_callback():
         final_res = {}
         async for ev in engine.execute_turn(
@@ -373,6 +491,47 @@ async def trigger_webhook(req: WebhookTriggerRequest, background_tasks: Backgrou
 
     background_tasks.add_task(run_and_callback)
     return {"status": "accepted", "message": "Execution started in background"}
+
+
+@router.post("/channels/webhook/config")
+async def configure_webhook(req: WebhookConfigRequest):
+    settings.webhook_enabled = req.enabled
+    if req.require_auth is not None:
+        settings.webhook_require_auth = req.require_auth
+    if req.api_key is not None and not ("..." in req.api_key or req.api_key == "***"):
+        clean_key = req.api_key.strip()
+        if clean_key:
+            settings.webhook_api_key = clean_key
+    if req.allowed_ips is not None:
+        settings.webhook_allowed_ips = [ip.strip() for ip in req.allowed_ips if ip.strip()]
+
+    save_settings(settings)
+    return {
+        "status": "ok",
+        "channel": webhook_channel.get_status()
+    }
+
+
+@router.get("/channels/webhook/key")
+async def get_webhook_key():
+    return {
+        "api_key": getattr(settings, "webhook_api_key", ""),
+        "enabled": getattr(settings, "webhook_enabled", True),
+        "require_auth": getattr(settings, "webhook_require_auth", True),
+        "allowed_ips": getattr(settings, "webhook_allowed_ips", []),
+    }
+
+
+@router.post("/channels/webhook/regenerate-token")
+async def regenerate_webhook_token():
+    new_token = f"agy_sec_{secrets.token_urlsafe(24)}"
+    settings.webhook_api_key = new_token
+    save_settings(settings)
+    return {
+        "status": "ok",
+        "api_key": new_token,
+        "channel": webhook_channel.get_status()
+    }
 
 
 # Settings
@@ -396,6 +555,7 @@ async def get_current_settings():
         "whatsapp_gateway_token",
         "whatsapp_verify_token",
         "imessage_password",
+        "webhook_api_key",
     ]:
         _apply_mask(secret_key)
 
@@ -411,6 +571,7 @@ async def update_settings(new_settings: Dict[str, Any]):
         "whatsapp_gateway_token",
         "whatsapp_verify_token",
         "imessage_password",
+        "webhook_api_key",
     }
     for k, v in new_settings.items():
         if hasattr(settings, k) and not k.startswith("_"):

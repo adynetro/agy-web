@@ -731,13 +731,50 @@
               <div style="background-color: var(--bg-tertiary); padding: 14px; border-radius: var(--radius-sm); border: 1px solid var(--border-light);">
                 <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:8px;">
                   <div>
-                    <span class="status-indicator online"></span>
-                    <strong>Webhook &amp; API Channel:</strong> <span style="text-transform:uppercase; font-weight:700;">ONLINE</span>
+                    <span id="webhook-live-dot" class="status-indicator online"></span>
+                    <strong>Webhook &amp; API Channel:</strong> <span id="webhook-live-status-text" style="text-transform:uppercase; font-weight:700;">ONLINE</span>
                   </div>
-                  <span class="brand-badge" style="background:rgba(0,185,92,0.15); color:var(--success);">ALWAYS READY</span>
+                  <span id="webhook-security-badge" class="brand-badge" style="background:rgba(0,185,92,0.15); color:var(--success);">🔒 PROTECTED</span>
                 </div>
                 <div style="font-size:13px; line-height:1.6; color:var(--text-secondary);">
-                  HTTP Webhook endpoint for CI/CD automation, Home Assistant automations, cron jobs, and external scripting.
+                  HTTP Webhook endpoint for CI/CD automation, Home Assistant automations, cron jobs, and external scripting with mandatory API key authorization.
+                </div>
+              </div>
+
+              <div class="form-group">
+                <div class="toggle-row">
+                  <div>
+                    <div class="form-label">Enable Webhook Trigger Channel</div>
+                    <div class="form-desc">Allow authorized external HTTP requests to trigger agent tasks in the background</div>
+                  </div>
+                  <label class="switch">
+                    <input id="webhook-enable-toggle" type="checkbox" checked>
+                    <span class="slider"></span>
+                  </label>
+                </div>
+              </div>
+
+              <div class="form-group">
+                <div class="toggle-row">
+                  <div>
+                    <div class="form-label">Require API Key Authorization (Recommended)</div>
+                    <div class="form-desc">Block all unauthenticated public requests with HTTP 401 Unauthorized unless a valid key is provided</div>
+                  </div>
+                  <label class="switch">
+                    <input id="webhook-require-auth-toggle" type="checkbox" checked>
+                    <span class="slider"></span>
+                  </label>
+                </div>
+              </div>
+
+              <div class="form-group">
+                <label class="form-label" for="webhook-api-key-input">Secret Webhook API Key / Bearer Token</label>
+                <div class="form-desc">Keep this secret confidential. External callers must pass this key to authorize requests.</div>
+                <div class="copy-input-group" style="display: flex; gap: 8px;">
+                  <input id="webhook-api-key-input" type="password" class="form-input" style="font-family: var(--font-mono); font-size: 13px; flex: 1;" placeholder="Loading secure key..." />
+                  <button type="button" class="btn-secondary" id="btn-toggle-webhook-key-vis" title="Toggle Show/Hide Secret Key" style="padding: 0 12px;">👁️</button>
+                  <button type="button" class="btn-copy-url" id="btn-copy-webhook-key">📋 Copy Key</button>
+                  <button type="button" class="btn-secondary" id="btn-regen-webhook-key" title="Generate a new cryptographically random token" style="padding: 0 12px;">🎲 Regenerate</button>
                 </div>
               </div>
 
@@ -745,17 +782,34 @@
                 <label class="form-label">Trigger Endpoint URL</label>
                 <div class="copy-input-group">
                   <input id="webhook-trigger-url-display" type="text" class="form-input" readonly value="" style="font-family: var(--font-mono); font-size: 12px; background: var(--bg-tertiary);" />
-                  <button type="button" class="btn-copy-url" id="btn-copy-webhook-url">📋 Copy</button>
+                  <button type="button" class="btn-copy-url" id="btn-copy-webhook-url">📋 Copy URL</button>
                 </div>
               </div>
 
               <div class="form-group">
-                <label class="form-label">Example Usage (cURL)</label>
-                <div style="background-color: var(--code-bg); padding: 12px; border-radius: var(--radius-sm); font-family: var(--font-mono); font-size: 12px; line-height: 1.6; overflow-x: auto; color: var(--text-primary); border: 1px solid var(--border-color);">
-                  curl -X POST https://agy.service.chiscari.ro/api/channels/webhook/trigger \<br>
+                <label class="form-label" for="webhook-allowed-ips-input">Allowed Client IPs / CIDRs (Optional Whitelist)</label>
+                <div class="form-desc">Comma-separated IPs or subnets (e.g. <code>10.0.0.0/24, 127.0.0.1</code>). Leave blank to allow any authorized IP.</div>
+                <input id="webhook-allowed-ips-input" type="text" class="form-input" placeholder="e.g. 10.0.0.0/24, 192.168.1.50" />
+              </div>
+
+              <div class="form-group">
+                <label class="form-label">Authorized Usage Examples (cURL)</label>
+                <div id="webhook-curl-example" style="background-color: var(--code-bg); padding: 12px; border-radius: var(--radius-sm); font-family: var(--font-mono); font-size: 12px; line-height: 1.6; overflow-x: auto; color: var(--text-primary); border: 1px solid var(--border-color);">
+                  <span style="color: var(--text-muted);"># Method 1: Bearer Authorization Header</span><br>
+                  curl -X POST <span class="webhook-display-url">https://agy.service.chiscari.ro/api/channels/webhook/trigger</span> \<br>
+                  &nbsp;&nbsp;-H "Authorization: Bearer <span class="webhook-display-key">&lt;YOUR_API_KEY&gt;</span>" \<br>
                   &nbsp;&nbsp;-H "Content-Type: application/json" \<br>
-                  &nbsp;&nbsp;-d '{"prompt": "Audit container health and report disk usage", "callback_url": "https://hooks.lan/result"}'
+                  &nbsp;&nbsp;-d '{"prompt": "Audit container health and report disk usage", "callback_url": "https://hooks.lan/result"}'<br><br>
+                  <span style="color: var(--text-muted);"># Method 2: X-API-Key Header</span><br>
+                  curl -X POST <span class="webhook-display-url">https://agy.service.chiscari.ro/api/channels/webhook/trigger</span> \<br>
+                  &nbsp;&nbsp;-H "X-API-Key: <span class="webhook-display-key">&lt;YOUR_API_KEY&gt;</span>" \<br>
+                  &nbsp;&nbsp;-H "Content-Type: application/json" \<br>
+                  &nbsp;&nbsp;-d '{"prompt": "Deploy system updates"}'
                 </div>
+              </div>
+
+              <div style="display: flex; justify-content: flex-end; margin-top: 8px;">
+                <button id="btn-save-webhook" class="btn-primary">Save Webhook Security Settings</button>
               </div>
             </div>
           </div>
@@ -1015,6 +1069,6 @@
 
   <script src="/static/vendor/marked.min.js"></script>
   <script src="/static/vendor/highlight.min.js"></script>
-  <script src="/static/js/app.js?v=5.3"></script>
+  <script src="/static/js/app.js?v=5.4"></script>
 </body>
 </html>
