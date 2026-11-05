@@ -937,7 +937,7 @@ class AgyApp {
       if (!res.ok) throw new Error('Not found');
       const data = await res.json();
       
-      this.dom.convTitle.textContent = data.title || 'Conversation';
+      if (this.dom.convTitle) this.dom.convTitle.textContent = data.title || 'Conversation';
       this.updateTerminalTitle(data.title);
       this.messages = data.messages || [];
 
@@ -1013,7 +1013,7 @@ class AgyApp {
 
     this.lastTerminalSeq = 0;
     this.messages = [];
-    this.dom.convTitle.textContent = 'New Conversation';
+    if (this.dom.convTitle) this.dom.convTitle.textContent = 'New Conversation';
     this.updateTerminalTitle('New Session');
     this.telemetry.inputTokens = 0;
     this.telemetry.outputTokens = 0;
