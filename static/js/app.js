@@ -198,6 +198,19 @@ class AgyApp {
     await this.fetchQuotaMetrics();
     await this.fetchProcesses();
     this.updateModelTelemetryUI();
+
+    // Auto-enter most recent session or previously active session, scrolled to bottom!
+    try {
+      const savedConvId = localStorage.getItem('agy_active_conv_id');
+      if (savedConvId && this.conversations.some(c => c.id === savedConvId)) {
+        await this.loadConversation(savedConvId);
+      } else if (this.conversations.length > 0 && !this.activeConversationId) {
+        await this.loadConversation(this.conversations[0].id);
+      }
+    } catch (e) {
+      console.warn('Error restoring active conversation:', e);
+    }
+
     this.connectWebSocket(this.activeConversationId);
     
     // Auto-poll channels status every 10s
@@ -891,17 +904,18 @@ class AgyApp {
       this.closeSidebar();
     }
     this.activeConversationId = convId;
+    try {
+      localStorage.setItem('agy_active_conv_id', convId);
+    } catch (e) {}
     this.lastTerminalSeq = 0;
 
     const isGenerating = this.generatingSessions.has(convId);
     this.setGenerating(isGenerating);
     if (isGenerating) {
-      this.startLiveBanner();
       this.updateDynamicActionButton('thinking');
       this.setTerminalIndicator('live', 'LIVE');
       if (this.dom.btnHeaderCli) this.dom.btnHeaderCli.classList.add('active');
     } else {
-      this.stopLiveBanner();
       this.updateDynamicActionButton('idle');
       this.setTerminalIndicator('idle', 'IDLE');
       if (this.dom.btnHeaderCli) this.dom.btnHeaderCli.classList.remove('active');
@@ -924,7 +938,30 @@ class AgyApp {
       this.dom.convTitle.textContent = data.title || 'Conversation';
       this.updateTerminalTitle(data.title);
       this.messages = data.messages || [];
+
+      // If this session is currently generating/running, link currentAssistantMessage
+      if (isGenerating) {
+        const lastMsg = this.messages[this.messages.length - 1];
+        if (lastMsg && lastMsg.role === 'assistant') {
+          lastMsg.isStreaming = true;
+          this.currentAssistantMessage = lastMsg;
+        } else {
+          this.currentAssistantMessage = {
+            role: 'assistant',
+            content: '',
+            thinking: '',
+            tool_calls: [],
+            isStreaming: true,
+            timestamp: new Date().toISOString()
+          };
+          this.messages.push(this.currentAssistantMessage);
+        }
+      } else {
+        this.currentAssistantMessage = null;
+      }
+
       this.renderChatMessages();
+      this.scrollToBottom(false, true);
 
       // Synchronize live WebSocket & terminal output for selected tab
       if (this.ws && this.ws.readyState === WebSocket.OPEN) {
@@ -962,6 +999,10 @@ class AgyApp {
       this.closeSidebar();
     }
     this.activeConversationId = null;
+    try {
+      localStorage.removeItem('agy_active_conv_id');
+    } catch (e) {}
+    this.currentAssistantMessage = null;
     this.setGenerating(false);
     this.updateDynamicActionButton('idle');
     this.stopLiveBanner();
@@ -1164,8 +1205,8 @@ class AgyApp {
     this.renderConversationList();
     this.renderChatMessages();
     this.setGenerating(true);
-    this.startLiveBanner();
     this.updateDynamicActionButton('thinking');
+    this.scrollToBottom(false, true);
 
     this.appendCliLog({
       level: 'info',
@@ -1643,7 +1684,15 @@ class AgyApp {
       this.dom.chatInner.appendChild(row);
     });
 
-    this.scrollToBottom();
+    // Handle any images loading asynchronously so scroll is kept pinned
+    this.dom.chatInner.querySelectorAll('img').forEach(img => {
+      if (!img.complete) {
+        img.addEventListener('load', () => this.scrollToBottom(false, false), { once: true });
+        img.addEventListener('error', () => this.scrollToBottom(false, false), { once: true });
+      }
+    });
+
+    this.scrollToBottom(false, true);
   }
 
   isReadTool(name) {
@@ -1906,13 +1955,17 @@ class AgyApp {
     card.className = 'chat-thinking-center-card';
 
     let activeTool = null;
+    let activeSummary = null;
     if (msg && msg.tool_calls && msg.tool_calls.length > 0) {
       const active = msg.tool_calls.find(t => t.state === 'ACTIVE');
-      if (active) activeTool = active.name;
+      if (active) {
+        activeTool = active.name;
+        activeSummary = active.summary || (active.args && (active.args.CommandLine || active.args.command || active.args.cmd || active.args.Path));
+      }
     }
 
     const title = activeTool ? `Executing ${activeTool.replace(/_/g, ' ')}...` : 'Antigravity is thinking...';
-    const subtitle = activeTool ? 'Running homelab action in background' : 'Synthesizing response and evaluating instructions';
+    const subtitle = activeSummary ? activeSummary : (activeTool ? 'Running homelab action in background' : 'Synthesizing response and evaluating instructions');
 
     card.innerHTML = `
       <div class="thinking-orbital-container">
@@ -1927,7 +1980,7 @@ class AgyApp {
       </div>
       <div class="thinking-label-group">
         <div class="thinking-label-primary">${this.escapeHtml(title)}</div>
-        <div class="thinking-label-secondary">${this.escapeHtml(subtitle)}</div>
+        <div class="thinking-label-secondary" title="${this.escapeHtml(subtitle)}">${this.escapeHtml(subtitle)}</div>
       </div>
     `;
     return card;
@@ -2084,7 +2137,8 @@ class AgyApp {
       textEl.textContent = msg.content;
       bubble.appendChild(textEl);
     } else {
-      if (msg.content) {
+      const hasText = msg.content && msg.content.trim().length > 0;
+      if (hasText) {
         const textEl = document.createElement('div');
         textEl.className = 'message-text markdown-body';
         try {
@@ -2099,7 +2153,11 @@ class AgyApp {
           textEl.appendChild(pulse);
         }
         bubble.appendChild(textEl);
-      } else if (msg.isStreaming) {
+      }
+
+      // If streaming, and content is empty OR an active tool is executing, show the Antigravity spinner
+      const hasActiveTool = msg.tool_calls && msg.tool_calls.some(t => t.state === 'ACTIVE');
+      if (msg.isStreaming && (!hasText || hasActiveTool)) {
         bubble.appendChild(this.createChatThinkingElement(msg));
       }
     }
@@ -2128,7 +2186,7 @@ class AgyApp {
     if (this.currentAssistantMessage) {
       const replacement = this.createMessageRowElement(this.currentAssistantMessage);
       lastRow.replaceWith(replacement);
-      this.scrollToBottom();
+      this.scrollToBottom(false, false);
     }
   }
 
@@ -2149,8 +2207,33 @@ class AgyApp {
     });
   }
 
-  scrollToBottom() {
-    this.dom.chatScroll.scrollTop = this.dom.chatScroll.scrollHeight;
+  scrollToBottom(smooth = false, scheduleRetries = true) {
+    if (!this.dom.chatScroll) return;
+
+    const performScroll = () => {
+      const el = this.dom.chatScroll;
+      if (!el) return;
+      el.scrollTop = el.scrollHeight + 10000;
+      const last = this.dom.chatInner ? this.dom.chatInner.lastElementChild : null;
+      if (last && typeof last.scrollIntoView === 'function') {
+        try {
+          last.scrollIntoView({ behavior: smooth ? 'smooth' : 'auto', block: 'end' });
+        } catch (e) {
+          el.scrollTop = el.scrollHeight + 10000;
+        }
+      }
+    };
+
+    performScroll();
+    requestAnimationFrame(performScroll);
+
+    if (scheduleRetries) {
+      setTimeout(performScroll, 50);
+      setTimeout(performScroll, 150);
+      setTimeout(performScroll, 300);
+      setTimeout(performScroll, 500);
+      setTimeout(performScroll, 800);
+    }
   }
 
   escapeHtml(str) {
@@ -3207,15 +3290,12 @@ class AgyApp {
     }
   }
 
-  // --- Live Action Status Banner ---
+  // --- Live Action Status Banner (Popup removed per user preference; only centered Antigravity spinner is used) ---
 
   startLiveBanner() {
     this.turnStartTime = Date.now();
     if (this.dom.liveCliBanner) {
-      this.dom.liveCliBanner.style.display = 'flex';
-    }
-    if (this.dom.liveBannerAction) {
-      this.dom.liveBannerAction.textContent = '🚀 Initializing Antigravity agent...';
+      this.dom.liveCliBanner.style.display = 'none';
     }
     if (this.dom.cliLiveIndicator) {
       this.dom.cliLiveIndicator.className = 'cli-live-indicator live';
@@ -3234,9 +3314,7 @@ class AgyApp {
   }
 
   updateLiveBannerAction(text) {
-    if (this.dom.liveBannerAction) {
-      this.dom.liveBannerAction.textContent = text;
-    }
+    // Running command popup banner removed per user preference
   }
 
   stopLiveBanner() {
