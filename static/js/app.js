@@ -167,11 +167,58 @@ class AgyApp {
       btwModalInput: document.getElementById('btw-modal-input'),
       btwInterruptToggle: document.getElementById('btw-interrupt-toggle'),
       btnSubmitBtw: document.getElementById('btn-submit-btw'),
+
+      // Cron & Scheduled Automation Elements
+      btnHeaderCron: document.getElementById('btn-header-cron'),
+      cronCountBadge: document.getElementById('cron-count-badge'),
+      modalCron: document.getElementById('modal-cron'),
+      btnNewCronJob: document.getElementById('btn-new-cron-job'),
+      btnRefreshCron: document.getElementById('btn-refresh-cron'),
+      cronTabBtnJobs: document.getElementById('tab-btn-cron-jobs'),
+      cronTabBtnHistory: document.getElementById('tab-btn-cron-history'),
+      cronTabCount: document.getElementById('cron-tab-count'),
+      cronJobsList: document.getElementById('cron-jobs-list'),
+      cronHistoryList: document.getElementById('cron-history-list'),
+      cronFooterSummary: document.getElementById('cron-footer-summary'),
+
+      // Cron Editor Modal Elements
+      modalCronEditor: document.getElementById('modal-cron-editor'),
+      cronEditorTitle: document.getElementById('cron-editor-title'),
+      cronEditorSubtitle: document.getElementById('cron-editor-subtitle'),
+      cronEditorForm: document.getElementById('cron-editor-form'),
+      cronEditJobId: document.getElementById('cron-edit-job-id'),
+      cronEditName: document.getElementById('cron-edit-name'),
+      cronEditDesc: document.getElementById('cron-edit-desc'),
+      cronEditExpr: document.getElementById('cron-edit-expr'),
+      cronExprPreview: document.getElementById('cron-expr-preview'),
+      cronPreviewDesc: document.getElementById('cron-preview-desc'),
+      cronEditPrompt: document.getElementById('cron-edit-prompt'),
+      btnCronTemplates: document.getElementById('btn-cron-templates'),
+      cronTemplatesMenu: document.getElementById('cron-templates-menu'),
+      cronEditModel: document.getElementById('cron-edit-model'),
+      cronEditMode: document.getElementById('cron-edit-mode'),
+      cronEditTarget: document.getElementById('cron-edit-target'),
+      cronEditTimeout: document.getElementById('cron-edit-timeout'),
+      cronTargetConvGroup: document.getElementById('cron-target-conv-group'),
+      cronEditTargetConv: document.getElementById('cron-edit-target-conv'),
+      cronNotifyWeb: document.getElementById('cron-notify-web'),
+      cronNotifyTelegram: document.getElementById('cron-notify-telegram'),
+      cronNotifyDiscord: document.getElementById('cron-notify-discord'),
+      cronEditEnabled: document.getElementById('cron-edit-enabled'),
+      btnCloseCronEditor: document.getElementById('btn-close-cron-editor'),
+      btnCancelCronEdit: document.getElementById('btn-cancel-cron-edit'),
+      btnSaveCronJob: document.getElementById('btn-save-cron-job'),
     };
 
     this.processes = [];
     this.activeViewingPid = null;
     this.activeSteeringConvId = null;
+
+    // Cron & Automation State
+    this.cronJobs = [];
+    this.cronRuns = [];
+    this.activeCronTab = 'cron-tab-jobs';
+    this.cronValidateDebounce = null;
 
     // Resilient WebSocket & Terminal Resume State
     this.reconnectTimer = null;
@@ -197,6 +244,7 @@ class AgyApp {
     await this.fetchSystemMetrics();
     await this.fetchQuotaMetrics();
     await this.fetchProcesses();
+    await this.fetchCronJobs();
     this.updateModelTelemetryUI();
 
     // Auto-enter most recent session or previously active session, scrolled to bottom!
@@ -229,6 +277,13 @@ class AgyApp {
         this.followActiveProcessOutput();
       }
     }, 3000);
+    // Auto-poll cron status every 15s
+    setInterval(() => {
+      this.fetchCronJobs();
+      if (this.dom.modalCron && this.dom.modalCron.style.display === 'flex' && this.activeCronTab === 'cron-tab-history') {
+        this.fetchCronRuns();
+      }
+    }, 15000);
   }
 
   initTheme() {
@@ -647,6 +702,9 @@ class AgyApp {
           if (overlay.id === 'modal-processes' && this.dom.btnHeaderProcesses) {
             this.dom.btnHeaderProcesses.classList.remove('modal-open');
           }
+          if (overlay.id === 'modal-cron' && this.dom.btnHeaderCron) {
+            this.dom.btnHeaderCron.classList.remove('modal-open');
+          }
         }
       });
     });
@@ -660,9 +718,119 @@ class AgyApp {
           if (modal.id === 'modal-processes' && this.dom.btnHeaderProcesses) {
             this.dom.btnHeaderProcesses.classList.remove('modal-open');
           }
+          if (modal.id === 'modal-cron' && this.dom.btnHeaderCron) {
+            this.dom.btnHeaderCron.classList.remove('modal-open');
+          }
         }
       });
     });
+
+    // Cron & Automation Button & Controls
+    if (this.dom.btnHeaderCron) {
+      this.dom.btnHeaderCron.addEventListener('click', () => {
+        if (this.dom.modalCron && this.dom.modalCron.style.display === 'flex') {
+          this.closeCronModal();
+        } else {
+          this.openCronModal();
+        }
+      });
+    }
+
+    if (this.dom.btnRefreshCron) {
+      this.dom.btnRefreshCron.addEventListener('click', () => {
+        this.fetchCronJobs();
+        if (this.activeCronTab === 'cron-tab-history') {
+          this.fetchCronRuns();
+        }
+      });
+    }
+
+    if (this.dom.btnNewCronJob) {
+      this.dom.btnNewCronJob.addEventListener('click', () => {
+        this.openCronEditor();
+      });
+    }
+
+    if (this.dom.cronTabBtnJobs) {
+      this.dom.cronTabBtnJobs.addEventListener('click', () => this.switchCronTab('cron-tab-jobs'));
+    }
+    if (this.dom.cronTabBtnHistory) {
+      this.dom.cronTabBtnHistory.addEventListener('click', () => this.switchCronTab('cron-tab-history'));
+    }
+
+    // Cron Presets
+    document.querySelectorAll('.cron-preset-pill').forEach(pill => {
+      pill.addEventListener('click', () => {
+        document.querySelectorAll('.cron-preset-pill').forEach(p => p.classList.remove('active'));
+        pill.classList.add('active');
+        const cronExpr = pill.dataset.cron;
+        if (this.dom.cronEditExpr) {
+          this.dom.cronEditExpr.value = cronExpr;
+          this.validateCronInput(cronExpr);
+        }
+      });
+    });
+
+    // Cron Expression Live Validation
+    if (this.dom.cronEditExpr) {
+      this.dom.cronEditExpr.addEventListener('input', (e) => {
+        const val = e.target.value.trim();
+        document.querySelectorAll('.cron-preset-pill').forEach(p => {
+          if (p.dataset.cron === val) {
+            p.classList.add('active');
+          } else {
+            p.classList.remove('active');
+          }
+        });
+        clearTimeout(this.cronValidateDebounce);
+        this.cronValidateDebounce = setTimeout(() => {
+          this.validateCronInput(val);
+        }, 250);
+      });
+    }
+
+    // Cron Prompt Templates Dropdown
+    if (this.dom.btnCronTemplates && this.dom.cronTemplatesMenu) {
+      this.dom.btnCronTemplates.addEventListener('click', (e) => {
+        e.stopPropagation();
+        const isHidden = this.dom.cronTemplatesMenu.style.display === 'none';
+        this.dom.cronTemplatesMenu.style.display = isHidden ? 'block' : 'none';
+      });
+    }
+    document.querySelectorAll('.template-item').forEach(item => {
+      item.addEventListener('click', () => {
+        const prompt = item.dataset.template;
+        if (this.dom.cronEditPrompt && prompt) {
+          this.dom.cronEditPrompt.value = prompt;
+        }
+        if (this.dom.cronTemplatesMenu) {
+          this.dom.cronTemplatesMenu.style.display = 'none';
+        }
+      });
+    });
+    document.addEventListener('click', (e) => {
+      if (this.dom.cronTemplatesMenu && !e.target.closest('.dropdown-templates-wrap')) {
+        this.dom.cronTemplatesMenu.style.display = 'none';
+      }
+    });
+
+    // Target Session Dropdown
+    if (this.dom.cronEditTarget && this.dom.cronTargetConvGroup) {
+      this.dom.cronEditTarget.addEventListener('change', (e) => {
+        this.dom.cronTargetConvGroup.style.display = e.target.value === 'existing' ? 'block' : 'none';
+      });
+    }
+
+    // Cron Editor Save / Cancel
+    if (this.dom.btnSaveCronJob) {
+      this.dom.btnSaveCronJob.addEventListener('click', () => this.saveCronJob());
+    }
+    if (this.dom.btnCloseCronEditor) {
+      this.dom.btnCloseCronEditor.addEventListener('click', () => this.closeCronEditor());
+    }
+    if (this.dom.btnCancelCronEdit) {
+      this.dom.btnCancelCronEdit.addEventListener('click', () => this.closeCronEditor());
+    }
 
     // Channel save buttons
     document.getElementById('btn-save-discord')?.addEventListener('click', () => this.saveDiscordConfig());
@@ -1185,6 +1353,13 @@ class AgyApp {
     const prompt = this.dom.promptInput.value.trim();
     if (!prompt) return;
 
+    if (prompt === '/cron' || prompt === '/schedule') {
+      this.openCronModal();
+      this.dom.promptInput.value = '';
+      this.dom.promptInput.style.height = 'auto';
+      return;
+    }
+
     if (this.isGenerating || prompt.startsWith('/btw')) {
       const cleanBtw = prompt.startsWith('/btw') ? prompt.replace(/^\/btw\s*/, '') : prompt;
       this.sendBtwSteering(cleanBtw);
@@ -1256,6 +1431,11 @@ class AgyApp {
 
   handleStreamEvent(data) {
     const type = data.type || data.event;
+
+    if (type === 'cron_job_started' || type === 'cron_job_finished' || type === 'cron_job_created' || type === 'cron_job_updated' || type === 'cron_job_deleted') {
+      this.handleCronWsEvent(data);
+      return;
+    }
 
     if (type === 'session_state') {
       const convId = data.conversation_id;
@@ -4123,6 +4303,617 @@ class AgyApp {
       await this.fetchProcesses();
     } catch (err) {
       console.error('Failed to stop process:', err);
+    }
+  }
+
+  // ==========================================================================
+  // Cron & Scheduled Automation Methods
+  // ==========================================================================
+
+  openCronModal() {
+    if (this.dom.modalCron) {
+      this.dom.modalCron.style.display = 'flex';
+      if (this.dom.btnHeaderCron) {
+        this.dom.btnHeaderCron.classList.add('modal-open');
+      }
+      this.fetchCronJobs();
+      if (this.activeCronTab === 'cron-tab-history') {
+        this.fetchCronRuns();
+      }
+    }
+  }
+
+  closeCronModal() {
+    if (this.dom.modalCron) {
+      this.dom.modalCron.style.display = 'none';
+      if (this.dom.btnHeaderCron) {
+        this.dom.btnHeaderCron.classList.remove('modal-open');
+      }
+    }
+  }
+
+  switchCronTab(tabId) {
+    this.activeCronTab = tabId;
+    document.querySelectorAll('.cron-subnav-tab').forEach(t => {
+      t.classList.toggle('active', t.dataset.tab === tabId);
+    });
+
+    const jobsTab = document.getElementById('cron-tab-jobs');
+    const historyTab = document.getElementById('cron-tab-history');
+
+    if (jobsTab) jobsTab.style.display = tabId === 'cron-tab-jobs' ? 'block' : 'none';
+    if (historyTab) historyTab.style.display = tabId === 'cron-tab-history' ? 'block' : 'none';
+
+    if (tabId === 'cron-tab-history') {
+      this.fetchCronRuns();
+    } else {
+      this.renderCronJobsList();
+    }
+  }
+
+  async fetchCronJobs() {
+    try {
+      const res = await fetch('/api/cron/jobs');
+      if (!res.ok) return;
+      const data = await res.json();
+      this.cronJobs = Array.isArray(data) ? data : (data.jobs || []);
+      this.updateCronHeaderBadge();
+
+      if (this.dom.modalCron && this.dom.modalCron.style.display === 'flex') {
+        if (this.activeCronTab === 'cron-tab-jobs') {
+          this.renderCronJobsList();
+        }
+      }
+    } catch (err) {
+      console.warn('Failed to fetch cron jobs:', err);
+    }
+  }
+
+  updateCronHeaderBadge() {
+    const totalJobs = this.cronJobs.length;
+    const enabledJobs = this.cronJobs.filter(j => j.enabled).length;
+    const runningJobs = this.cronJobs.filter(j => j.last_status === 'running').length;
+
+    if (this.dom.cronTabCount) {
+      this.dom.cronTabCount.textContent = totalJobs;
+    }
+
+    if (this.dom.cronCountBadge) {
+      if (totalJobs > 0) {
+        this.dom.cronCountBadge.textContent = `${enabledJobs}/${totalJobs}`;
+        this.dom.cronCountBadge.style.display = 'inline-block';
+        if (enabledJobs > 0) {
+          this.dom.cronCountBadge.classList.add('has-active');
+        } else {
+          this.dom.cronCountBadge.classList.remove('has-active');
+        }
+      } else {
+        this.dom.cronCountBadge.style.display = 'none';
+      }
+    }
+
+    if (this.dom.btnHeaderCron) {
+      if (runningJobs > 0) {
+        this.dom.btnHeaderCron.classList.add('is-running');
+        this.dom.btnHeaderCron.classList.remove('has-active');
+      } else if (enabledJobs > 0) {
+        this.dom.btnHeaderCron.classList.remove('is-running');
+        this.dom.btnHeaderCron.classList.add('has-active');
+      } else {
+        this.dom.btnHeaderCron.classList.remove('is-running', 'has-active');
+      }
+    }
+  }
+
+  renderCronJobsList() {
+    if (!this.dom.cronJobsList) return;
+    this.dom.cronJobsList.innerHTML = '';
+
+    if (!this.cronJobs || this.cronJobs.length === 0) {
+      this.dom.cronJobsList.innerHTML = `
+        <div class="cron-empty-state">
+          <div class="cron-empty-icon">📅</div>
+          <div style="font-weight: 600; font-size: 14px; color: var(--text-primary);">No Scheduled Automation Jobs</div>
+          <div style="font-size: 12.5px; max-width: 420px; line-height: 1.4;">
+            Create your first recurring job to have Antigravity automatically run homelab audits, monitor containers, or execute periodic workflows.
+          </div>
+          <button class="btn-primary" style="margin-top: 10px;" onclick="window.app.openCronEditor()">
+            + Create New Schedule
+          </button>
+        </div>
+      `;
+      return;
+    }
+
+    this.cronJobs.forEach(job => {
+      const card = document.createElement('div');
+      card.className = `cron-job-card ${job.enabled ? '' : 'is-disabled'} ${job.last_status === 'running' ? 'is-running' : ''}`;
+      card.dataset.jobId = job.id;
+
+      // Status pill & label
+      let statusBadge = '<span class="cron-status-pill disabled">Disabled</span>';
+      if (job.last_status === 'running') {
+        statusBadge = '<span class="cron-status-pill running">⚡ Executing Now</span>';
+      } else if (job.enabled) {
+        statusBadge = '<span class="cron-status-pill enabled">Active</span>';
+      }
+
+      // Next run formatting
+      let nextRunStr = 'Paused';
+      if (job.enabled && job.next_run_at) {
+        const nextDate = new Date(job.next_run_at * 1000);
+        const now = Date.now();
+        const diffMs = (job.next_run_at * 1000) - now;
+        if (diffMs > 0) {
+          const diffMinutes = Math.round(diffMs / 60000);
+          if (diffMinutes < 60) {
+            nextRunStr = `in ${diffMinutes}m (${nextDate.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })})`;
+          } else if (diffMinutes < 1440) {
+            const hours = Math.floor(diffMinutes / 60);
+            const mins = diffMinutes % 60;
+            nextRunStr = `in ${hours}h ${mins}m (${nextDate.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })})`;
+          } else {
+            nextRunStr = nextDate.toLocaleDateString([], { month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' });
+          }
+        } else {
+          nextRunStr = 'Due now';
+        }
+      }
+
+      // Last run formatting
+      let lastRunStr = 'Never';
+      if (job.last_run_at) {
+        lastRunStr = new Date(job.last_run_at * 1000).toLocaleString([], {
+          month: 'short',
+          day: 'numeric',
+          hour: '2-digit',
+          minute: '2-digit'
+        });
+      }
+
+      // Channels
+      const channelIcons = (job.notify_channels || []).map(ch => {
+        if (ch === 'telegram') return '✈️';
+        if (ch === 'discord') return '💬';
+        return '🌐';
+      }).join(' ');
+
+      card.innerHTML = `
+        <div class="cron-card-header">
+          <div>
+            <div class="cron-card-title-wrap">
+              <span class="cron-card-name">${this.escapeHtml(job.name)}</span>
+              <span class="cron-badge-expr" title="${this.escapeHtml(job.schedule_description || job.human_readable || '')}">
+                <span>⏰</span> ${this.escapeHtml(job.cron_expression)}
+              </span>
+              ${statusBadge}
+            </div>
+            ${job.description ? `<div class="cron-card-desc" style="margin-top: 4px;">${this.escapeHtml(job.description)}</div>` : ''}
+            <div style="font-size: 11.5px; color: var(--accent-cyan); margin-top: 2px;">
+              ${this.escapeHtml(job.schedule_description || job.human_readable || '')}
+            </div>
+          </div>
+          <div class="cron-card-actions">
+            <button class="cron-btn-action run-now btn-cron-run-now" title="Trigger execution immediately" data-id="${job.id}">
+              <span>▶</span> Run Now
+            </button>
+            <button class="cron-btn-action btn-cron-edit" title="Edit schedule" data-id="${job.id}">
+              <span>✏️</span> Edit
+            </button>
+            <button class="cron-btn-action btn-cron-toggle" title="${job.enabled ? 'Pause schedule' : 'Enable schedule'}" data-id="${job.id}">
+              <span>${job.enabled ? '⏸' : '▶️'}</span> ${job.enabled ? 'Pause' : 'Enable'}
+            </button>
+            <button class="cron-btn-action danger btn-cron-delete" title="Delete job" data-id="${job.id}">
+              <span>🗑️</span>
+            </button>
+          </div>
+        </div>
+
+        <div class="cron-card-prompt">${this.escapeHtml(job.prompt)}</div>
+
+        <div class="cron-card-meta">
+          <div class="cron-card-meta-items">
+            <div class="cron-card-meta-item">
+              <span style="color: var(--text-muted);">Next:</span>
+              <span style="font-weight: 600; color: var(--text-primary);">${nextRunStr}</span>
+            </div>
+            <div class="cron-card-meta-item">
+              <span style="color: var(--text-muted);">Last:</span>
+              <span>${lastRunStr}</span>
+            </div>
+            <div class="cron-card-meta-item">
+              <span style="color: var(--text-muted);">Mode:</span>
+              <span class="font-mono" style="text-transform: uppercase; font-size: 11px;">${job.mode || job.agent_mode || 'yolo'}</span>
+            </div>
+            <div class="cron-card-meta-item">
+              <span style="color: var(--text-muted);">Target:</span>
+              <span>${(job.target_type || job.target_mode) === 'new' ? 'New Session' : ((job.target_type || job.target_mode) === 'dedicated' ? 'Dedicated' : 'Existing')}</span>
+            </div>
+            ${channelIcons ? `
+            <div class="cron-card-meta-item">
+              <span style="color: var(--text-muted);">Notify:</span>
+              <span>${channelIcons}</span>
+            </div>` : ''}
+          </div>
+          <div style="font-size: 11.5px; color: var(--text-muted);">
+            Runs: <span style="font-weight: 600; color: var(--text-primary);">${job.run_count ?? job.total_runs ?? 0}</span>
+          </div>
+        </div>
+      `;
+
+      // Bind card actions
+      card.querySelector('.btn-cron-run-now')?.addEventListener('click', () => this.runCronJobNow(job.id));
+      card.querySelector('.btn-cron-edit')?.addEventListener('click', () => this.openCronEditor(job.id));
+      card.querySelector('.btn-cron-toggle')?.addEventListener('click', () => this.toggleCronJob(job.id));
+      card.querySelector('.btn-cron-delete')?.addEventListener('click', () => this.deleteCronJob(job.id));
+
+      this.dom.cronJobsList.appendChild(card);
+    });
+  }
+
+  async openCronEditor(jobId = null) {
+    if (!this.dom.modalCronEditor) return;
+
+    // Reset form
+    if (this.dom.cronEditorForm) this.dom.cronEditorForm.reset();
+    if (this.dom.cronEditJobId) this.dom.cronEditJobId.value = jobId || '';
+    if (this.dom.cronTargetConvGroup) this.dom.cronTargetConvGroup.style.display = 'none';
+
+    // Populate model dropdown options if models available
+    if (this.dom.cronEditModel && this.models && this.models.length > 0) {
+      const currentVal = this.dom.cronEditModel.value;
+      this.dom.cronEditModel.innerHTML = '<option value="">Default (Inherit / Global)</option>';
+      this.models.forEach(m => {
+        const opt = document.createElement('option');
+        opt.value = m.id || m.name;
+        opt.textContent = m.displayName || m.name || m.id;
+        this.dom.cronEditModel.appendChild(opt);
+      });
+      if (currentVal) this.dom.cronEditModel.value = currentVal;
+    }
+
+    if (jobId) {
+      const job = this.cronJobs.find(j => j.id === jobId);
+      if (job) {
+        if (this.dom.cronEditorTitle) this.dom.cronEditorTitle.textContent = 'Edit Scheduled Job';
+        if (this.dom.cronEditorSubtitle) this.dom.cronEditorSubtitle.textContent = `Modify schedule or prompt for "${job.name}"`;
+        if (this.dom.cronEditName) this.dom.cronEditName.value = job.name || '';
+        if (this.dom.cronEditDesc) this.dom.cronEditDesc.value = job.description || '';
+        if (this.dom.cronEditExpr) this.dom.cronEditExpr.value = job.cron_expression || '0 8 * * *';
+        if (this.dom.cronEditPrompt) this.dom.cronEditPrompt.value = job.prompt || '';
+        if (this.dom.cronEditModel) this.dom.cronEditModel.value = job.model || '';
+        if (this.dom.cronEditMode) this.dom.cronEditMode.value = job.agent_mode || 'yolo';
+        if (this.dom.cronEditTarget) {
+          this.dom.cronEditTarget.value = job.target_mode || 'new';
+          if (this.dom.cronTargetConvGroup) {
+            this.dom.cronTargetConvGroup.style.display = job.target_mode === 'existing' ? 'block' : 'none';
+          }
+        }
+        if (this.dom.cronEditTargetConv) this.dom.cronEditTargetConv.value = job.target_conversation_id || '';
+        if (this.dom.cronEditTimeout) this.dom.cronEditTimeout.value = job.timeout_seconds || 600;
+        if (this.dom.cronEditEnabled) this.dom.cronEditEnabled.checked = Boolean(job.enabled);
+
+        const notifs = job.notify_channels || ['web'];
+        if (this.dom.cronNotifyWeb) this.dom.cronNotifyWeb.checked = notifs.includes('web');
+        if (this.dom.cronNotifyTelegram) this.dom.cronNotifyTelegram.checked = notifs.includes('telegram');
+        if (this.dom.cronNotifyDiscord) this.dom.cronNotifyDiscord.checked = notifs.includes('discord');
+
+        this.validateCronInput(job.cron_expression);
+
+        // Highlight preset if matches
+        document.querySelectorAll('.cron-preset-pill').forEach(p => {
+          p.classList.toggle('active', p.dataset.cron === job.cron_expression);
+        });
+      }
+    } else {
+      if (this.dom.cronEditorTitle) this.dom.cronEditorTitle.textContent = 'New Scheduled Job';
+      if (this.dom.cronEditorSubtitle) this.dom.cronEditorSubtitle.textContent = 'Configure schedule expression, target prompt, and execution mode';
+      if (this.dom.cronEditExpr) this.dom.cronEditExpr.value = '0 8 * * *';
+      if (this.dom.cronEditTimeout) this.dom.cronEditTimeout.value = 600;
+      if (this.dom.cronEditEnabled) this.dom.cronEditEnabled.checked = true;
+      if (this.dom.cronNotifyWeb) this.dom.cronNotifyWeb.checked = true;
+
+      // Default preset pill highlight
+      document.querySelectorAll('.cron-preset-pill').forEach(p => {
+        p.classList.toggle('active', p.dataset.cron === '0 8 * * *');
+      });
+      this.validateCronInput('0 8 * * *');
+    }
+
+    this.dom.modalCronEditor.style.display = 'flex';
+  }
+
+  closeCronEditor() {
+    if (this.dom.modalCronEditor) {
+      this.dom.modalCronEditor.style.display = 'none';
+    }
+  }
+
+  async validateCronInput(expr) {
+    if (!expr || !this.dom.cronPreviewDesc) return;
+    try {
+      const res = await fetch('/api/cron/validate', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ cron_expression: expr })
+      });
+      const data = await res.json();
+      if (data.valid) {
+        this.dom.cronPreviewDesc.textContent = data.description || data.human_readable || expr;
+        this.dom.cronPreviewDesc.classList.remove('error');
+      } else {
+        this.dom.cronPreviewDesc.textContent = `Invalid cron expression: ${data.description || data.error || 'Syntax error'}`;
+        this.dom.cronPreviewDesc.classList.add('error');
+      }
+    } catch (e) {
+      // Offline fallback
+      this.dom.cronPreviewDesc.textContent = expr;
+      this.dom.cronPreviewDesc.classList.remove('error');
+    }
+  }
+
+  async saveCronJob() {
+    const name = this.dom.cronEditName?.value.trim();
+    const prompt = this.dom.cronEditPrompt?.value.trim();
+    const cronExpr = this.dom.cronEditExpr?.value.trim();
+    const jobId = this.dom.cronEditJobId?.value.trim();
+
+    if (!name) {
+      alert('Please enter a job name.');
+      this.dom.cronEditName?.focus();
+      return;
+    }
+    if (!cronExpr) {
+      alert('Please enter a cron expression.');
+      this.dom.cronEditExpr?.focus();
+      return;
+    }
+    if (!prompt) {
+      alert('Please enter an agent prompt / instruction to execute.');
+      this.dom.cronEditPrompt?.focus();
+      return;
+    }
+
+    const notifyChannels = [];
+    if (this.dom.cronNotifyWeb?.checked) notifyChannels.push('web');
+    if (this.dom.cronNotifyTelegram?.checked) notifyChannels.push('telegram');
+    if (this.dom.cronNotifyDiscord?.checked) notifyChannels.push('discord');
+
+    const payload = {
+      name: name,
+      description: this.dom.cronEditDesc?.value.trim() || "",
+      cron_expression: cronExpr,
+      prompt: prompt,
+      model: this.dom.cronEditModel?.value || null,
+      mode: this.dom.cronEditMode?.value || 'yolo',
+      target_type: this.dom.cronEditTarget?.value || 'new',
+      target_conversation_id: this.dom.cronEditTarget?.value === 'existing' ? (this.dom.cronEditTargetConv?.value.trim() || null) : null,
+      timeout_seconds: parseInt(this.dom.cronEditTimeout?.value, 10) || 600,
+      enabled: this.dom.cronEditEnabled?.checked ?? true,
+      notify_channels: notifyChannels,
+    };
+
+    try {
+      const url = jobId ? `/api/cron/jobs/${jobId}` : '/api/cron/jobs';
+      const method = jobId ? 'PUT' : 'POST';
+
+      const res = await fetch(url, {
+        method: method,
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(payload)
+      });
+
+      if (!res.ok) {
+        const err = await res.json();
+        alert(`Failed to save scheduled job: ${err.detail || 'Unknown error'}`);
+        return;
+      }
+
+      this.closeCronEditor();
+      await this.fetchCronJobs();
+      this.appendCliLog({
+        level: 'info',
+        message: `[CRON] > ${jobId ? 'Updated' : 'Created'} scheduled job: "${name}" (${cronExpr})`,
+        timestamp: Date.now() / 1000
+      });
+    } catch (err) {
+      console.error('Error saving cron job:', err);
+      alert('Network error saving scheduled job.');
+    }
+  }
+
+  async toggleCronJob(jobId) {
+    try {
+      const res = await fetch(`/api/cron/jobs/${jobId}/toggle`, { method: 'POST' });
+      if (!res.ok) return;
+      await this.fetchCronJobs();
+    } catch (err) {
+      console.error('Error toggling cron job:', err);
+    }
+  }
+
+  async deleteCronJob(jobId) {
+    const job = this.cronJobs.find(j => j.id === jobId);
+    const jobName = job ? job.name : jobId;
+    if (!confirm(`Are you sure you want to delete the scheduled job "${jobName}"?`)) return;
+
+    try {
+      const res = await fetch(`/api/cron/jobs/${jobId}`, { method: 'DELETE' });
+      if (!res.ok) return;
+      await this.fetchCronJobs();
+      this.appendCliLog({
+        level: 'warn',
+        message: `[CRON] > Deleted scheduled job "${jobName}"`,
+        timestamp: Date.now() / 1000
+      });
+    } catch (err) {
+      console.error('Error deleting cron job:', err);
+    }
+  }
+
+  async runCronJobNow(jobId) {
+    const job = this.cronJobs.find(j => j.id === jobId);
+    const jobName = job ? job.name : jobId;
+
+    // Optimistic UI update
+    if (job) {
+      job.last_status = 'running';
+      this.renderCronJobsList();
+      this.updateCronHeaderBadge();
+    }
+
+    try {
+      const res = await fetch(`/api/cron/jobs/${jobId}/run`, { method: 'POST' });
+      if (!res.ok) {
+        const err = await res.json();
+        alert(`Failed to start job run: ${err.detail || 'Unknown error'}`);
+        await this.fetchCronJobs();
+        return;
+      }
+
+      this.appendCliLog({
+        level: 'info',
+        message: `[CRON] > Triggered immediate manual execution for "${jobName}"`,
+        timestamp: Date.now() / 1000
+      });
+
+      // Switch to history or refresh after a short delay
+      setTimeout(() => {
+        this.fetchCronJobs();
+        if (this.activeCronTab === 'cron-tab-history') {
+          this.fetchCronRuns();
+        }
+      }, 1000);
+    } catch (err) {
+      console.error('Error triggering cron job:', err);
+      await this.fetchCronJobs();
+    }
+  }
+
+  async fetchCronRuns() {
+    try {
+      const res = await fetch('/api/cron/runs?limit=50');
+      if (!res.ok) return;
+      const data = await res.json();
+      this.cronRuns = Array.isArray(data) ? data : (data.runs || []);
+      if (this.dom.modalCron && this.dom.modalCron.style.display === 'flex' && this.activeCronTab === 'cron-tab-history') {
+        this.renderCronRunsList();
+      }
+    } catch (err) {
+      console.warn('Failed to fetch cron runs:', err);
+    }
+  }
+
+  renderCronRunsList() {
+    if (!this.dom.cronHistoryList) return;
+    this.dom.cronHistoryList.innerHTML = '';
+
+    if (!this.cronRuns || this.cronRuns.length === 0) {
+      this.dom.cronHistoryList.innerHTML = `
+        <div class="cron-empty-state">
+          <div class="cron-empty-icon">📜</div>
+          <div style="font-weight: 600; font-size: 14px; color: var(--text-primary);">No Execution History Yet</div>
+          <div style="font-size: 12.5px; max-width: 420px; line-height: 1.4;">
+            As scheduled jobs or manual runs execute, records and transcripts will appear here.
+          </div>
+        </div>
+      `;
+      return;
+    }
+
+    this.cronRuns.forEach(run => {
+      const item = document.createElement('div');
+      item.className = 'cron-history-item';
+
+      let statusBadge = '<span class="cron-history-status success">SUCCESS</span>';
+      if (run.status === 'running') {
+        statusBadge = '<span class="cron-history-status running">RUNNING...</span>';
+      } else if (run.status === 'failed' || run.status === 'error') {
+        statusBadge = '<span class="cron-history-status error">FAILED</span>';
+      } else if (run.status === 'timeout') {
+        statusBadge = '<span class="cron-history-status error">TIMEOUT</span>';
+      }
+
+      const startedStr = new Date(run.started_at * 1000).toLocaleString([], {
+        month: 'short',
+        day: 'numeric',
+        hour: '2-digit',
+        minute: '2-digit',
+        second: '2-digit'
+      });
+
+      let durationStr = '--';
+      if (run.duration_seconds !== null && run.duration_seconds !== undefined) {
+        durationStr = `${run.duration_seconds.toFixed(1)}s`;
+      } else if (run.status === 'running') {
+        const elapsed = Math.round((Date.now() / 1000) - run.started_at);
+        durationStr = `${elapsed}s elapsed`;
+      }
+
+      const convLink = run.conversation_id ? `
+        <a href="#" class="cron-history-link btn-view-run-conv" data-conv-id="${run.conversation_id}">
+          <span>💬</span> View Session (${run.conversation_id.slice(0, 8)}...)
+        </a>
+      ` : '';
+
+      item.innerHTML = `
+        <div class="cron-history-header">
+          <div class="cron-history-job-name">
+            <span>⏰</span>
+            <span>${this.escapeHtml(run.job_name || 'Scheduled Job')}</span>
+            ${statusBadge}
+          </div>
+          <div class="cron-history-meta">
+            <span>🕒 ${startedStr}</span>
+            <span>⏱️ ${durationStr}</span>
+            ${convLink}
+          </div>
+        </div>
+        ${run.output_snippet ? `
+          <div class="cron-history-output">${this.escapeHtml(run.output_snippet)}</div>
+        ` : ''}
+        ${run.error_message ? `
+          <div class="cron-history-output" style="color: #f87171; border-color: rgba(248, 113, 113, 0.3);">${this.escapeHtml(run.error_message)}</div>
+        ` : ''}
+      `;
+
+      item.querySelector('.btn-view-run-conv')?.addEventListener('click', (e) => {
+        e.preventDefault();
+        const convId = run.conversation_id;
+        if (convId) {
+          this.closeCronModal();
+          this.loadConversation(convId);
+        }
+      });
+
+      this.dom.cronHistoryList.appendChild(item);
+    });
+  }
+
+  handleCronWsEvent(data) {
+    const eventType = data.event || data.type;
+
+    if (eventType === 'cron_job_started') {
+      const jobId = data.job_id;
+      const job = this.cronJobs.find(j => j.id === jobId);
+      if (job) {
+        job.last_status = 'running';
+        job.last_run_at = data.timestamp || (Date.now() / 1000);
+      }
+      this.updateCronHeaderBadge();
+      if (this.dom.modalCron && this.dom.modalCron.style.display === 'flex') {
+        if (this.activeCronTab === 'cron-tab-jobs') this.renderCronJobsList();
+        if (this.activeCronTab === 'cron-tab-history') this.fetchCronRuns();
+      }
+    } else if (eventType === 'cron_job_finished') {
+      this.fetchCronJobs();
+      if (this.dom.modalCron && this.dom.modalCron.style.display === 'flex') {
+        this.fetchCronRuns();
+      }
+      // Also refresh conversations in sidebar if a new conversation was created
+      this.fetchConversations();
+    } else if (eventType === 'cron_job_created' || eventType === 'cron_job_updated' || eventType === 'cron_job_deleted') {
+      this.fetchCronJobs();
     }
   }
 }

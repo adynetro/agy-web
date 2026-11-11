@@ -10,6 +10,7 @@ from fastapi.staticfiles import StaticFiles
 from app.api.routes import router as api_router
 from app.api.websocket import ws_router
 from app.channels.manager import channel_manager
+from app.cron.manager import cron_manager
 from app.config import settings
 
 STATIC_DIR = Path(__file__).resolve().parent.parent / "static"
@@ -17,12 +18,14 @@ STATIC_DIR = Path(__file__).resolve().parent.parent / "static"
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
-    # Startup: Start channel listeners (Discord bot, etc.)
+    # Startup: Start channel listeners (Discord bot, etc.) & Cron scheduler
     print(f"Starting Agy WebUI on http://{settings.host}:{settings.port}")
     await channel_manager.start_all()
+    await cron_manager.start()
     yield
-    # Shutdown: Stop all channels
-    print("Shutting down Agy WebUI channels...")
+    # Shutdown: Stop all channels & Cron scheduler
+    print("Shutting down Agy WebUI channels and cron scheduler...")
+    await cron_manager.stop()
     await channel_manager.stop_all()
 
 

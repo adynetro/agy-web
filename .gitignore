@@ -30,6 +30,8 @@ ENV/
 # Configuration & Secrets
 config/settings.json
 config/discord_conv_map.json
+config/cron_jobs.json
+config/cron_runs.json
 !config/settings.example.json
 static/assets/custom-logo*
 .env

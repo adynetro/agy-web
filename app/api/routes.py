@@ -8,6 +8,7 @@ import re
 import hmac
 import secrets
 import ipaddress
+from datetime import datetime, timezone
 from typing import Any, Dict, List, Optional
 from pathlib import Path
 from fastapi import APIRouter, HTTPException, BackgroundTasks, UploadFile, File, Request, Response
@@ -25,6 +26,8 @@ from app.channels.whatsapp import whatsapp_channel
 from app.channels.imessage import imessage_channel
 from app.channels.webhook import webhook_channel
 from app.processes import process_manager
+from app.cron.manager import cron_manager, validate_cron_expression
+from app.cron.models import CronJobCreate, CronJobUpdate
 
 router = APIRouter()
 
@@ -820,3 +823,116 @@ async def _fetch_quota_async(force_refresh: bool = False) -> Dict[str, Any]:
 @router.get("/quota")
 async def get_quota_info(refresh: bool = False):
     return await _fetch_quota_async(force_refresh=refresh)
+
+
+# ==============================================================================
+# Cron & Scheduled Automation Endpoints
+# ==============================================================================
+
+class CronValidateRequest(BaseModel):
+    cron_expression: str = Field(..., description="Cron expression to validate")
+
+
+@router.get("/cron/jobs")
+async def list_cron_jobs():
+    """List all scheduled cron jobs with human-friendly descriptions and statuses."""
+    return {"jobs": cron_manager.list_jobs()}
+
+
+@router.post("/cron/jobs")
+async def create_cron_job(payload: CronJobCreate):
+    """Create a new scheduled cron job."""
+    try:
+        job = await cron_manager.create_job(payload)
+        return {"success": True, "job": job}
+    except ValueError as e:
+        raise HTTPException(status_code=400, detail=str(e))
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Failed to create cron job: {e}")
+
+
+@router.get("/cron/jobs/{job_id}")
+async def get_cron_job(job_id: str):
+    """Get details for a single cron job."""
+    job = cron_manager.get_job(job_id)
+    if not job:
+        raise HTTPException(status_code=404, detail=f"Cron job '{job_id}' not found")
+    return {"job": job}
+
+
+@router.put("/cron/jobs/{job_id}")
+async def update_cron_job(job_id: str, payload: CronJobUpdate):
+    """Update an existing cron job."""
+    try:
+        job = await cron_manager.update_job(job_id, payload)
+        if not job:
+            raise HTTPException(status_code=404, detail=f"Cron job '{job_id}' not found")
+        return {"success": True, "job": job}
+    except ValueError as e:
+        raise HTTPException(status_code=400, detail=str(e))
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Failed to update cron job: {e}")
+
+
+@router.delete("/cron/jobs/{job_id}")
+async def delete_cron_job(job_id: str):
+    """Delete a cron job."""
+    deleted = await cron_manager.delete_job(job_id)
+    if not deleted:
+        raise HTTPException(status_code=404, detail=f"Cron job '{job_id}' not found")
+    return {"success": True, "deleted_id": job_id}
+
+
+@router.post("/cron/jobs/{job_id}/toggle")
+async def toggle_cron_job(job_id: str):
+    """Toggle a cron job between enabled and disabled."""
+    job = await cron_manager.toggle_job(job_id)
+    if not job:
+        raise HTTPException(status_code=404, detail=f"Cron job '{job_id}' not found")
+    return {"success": True, "job": job}
+
+
+@router.post("/cron/jobs/{job_id}/run")
+async def run_cron_job_now(job_id: str, background_tasks: BackgroundTasks):
+    """Manually trigger immediate execution of a cron job in the background."""
+    job = cron_manager.get_job(job_id)
+    if not job:
+        raise HTTPException(status_code=404, detail=f"Cron job '{job_id}' not found")
+
+    if job.get("is_running"):
+        return {"success": False, "message": f"Job '{job['name']}' is already running", "job": job}
+
+    # Trigger execution in background task
+    background_tasks.add_task(cron_manager.execute_job, job_id, True)
+    return {"success": True, "message": f"Triggered execution for '{job['name']}'", "job_id": job_id}
+
+
+@router.get("/cron/jobs/{job_id}/runs")
+async def get_cron_job_runs(job_id: str, limit: int = 50):
+    """Get past execution history runs for a specific job."""
+    runs = cron_manager.list_runs(job_id=job_id, limit=limit)
+    return {"runs": runs, "job_id": job_id}
+
+
+@router.get("/cron/runs")
+async def list_recent_cron_runs(limit: int = 50):
+    """Get past execution history runs across all scheduled jobs."""
+    runs = cron_manager.list_runs(limit=limit)
+    return {"runs": runs}
+
+
+@router.post("/cron/validate")
+async def validate_cron(payload: CronValidateRequest):
+    """Validate a cron expression and return human explanation plus next 5 run times."""
+    valid, desc, next_timestamps = validate_cron_expression(payload.cron_expression)
+    next_runs_iso = [
+        datetime.fromtimestamp(ts, tz=timezone.utc).strftime("%Y-%m-%d %H:%M:%S UTC")
+        for ts in next_timestamps
+    ]
+    return {
+        "valid": valid,
+        "description": desc,
+        "next_timestamps": next_timestamps,
+        "next_runs": next_runs_iso,
+    }
+
