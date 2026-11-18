@@ -331,10 +331,10 @@ class CronManager:
                 snippet = "Turn completed successfully."
                 if session.result:
                     res_obj = session.result.get("result") or session.result
-                    if isinstance(res_obj, dict) and res_obj.get("content"):
-                        snippet = str(res_obj["content"])[:300]
-                    elif isinstance(res_obj, dict) and res_obj.get("message"):
-                        snippet = str(res_obj["message"])[:300]
+                    if isinstance(res_obj, dict):
+                        resp = res_obj.get("response") or res_obj.get("content") or res_obj.get("message")
+                        if resp:
+                            snippet = str(resp)
                 run_record.output_snippet = snippet
 
             elif session.status == "aborted":
@@ -423,12 +423,42 @@ class CronManager:
         if "discord" in job.notify_channels:
             try:
                 dc = channel_manager.get_channel("discord")
-                if dc and dc.is_enabled and getattr(settings, "discord_allowed_channels", []):
-                    for ch_id in getattr(settings, "discord_allowed_channels", []):
-                        if str(ch_id).isdigit():
-                            channel = dc.client.get_channel(int(ch_id))
+                if dc and dc.is_enabled and dc.client:
+                    from app.channels.discord import split_discord_message
+
+                    target_channels = []
+                    allowed_ids = [int(c) for c in getattr(settings, "discord_allowed_channels", []) if str(c).isdigit()]
+                    if allowed_ids:
+                        for ch_id in allowed_ids:
+                            channel = dc.client.get_channel(ch_id)
+                            if not channel:
+                                try:
+                                    channel = await dc.client.fetch_channel(ch_id)
+                                except Exception:
+                                    channel = None
                             if channel:
-                                await channel.send(summary_text.replace("*", "**"))
+                                target_channels.append(channel)
+
+                    if not target_channels:
+                        for guild in dc.client.guilds:
+                            for ch in guild.text_channels:
+                                if ch.name.lower() in ("alerts", "general", "homelab"):
+                                    target_channels.append(ch)
+                                    break
+                            if target_channels:
+                                break
+
+                    discord_msg = f"{status_emoji} **[Homelab Status Report] {job.name}**\n"
+                    discord_msg += f"• **Status**: {run.status.upper()} ({run.duration_seconds or 0}s) • **Date**: {datetime.now(timezone.utc).strftime('%Y-%m-%d %H:%M UTC')}\n\n"
+                    if run.output_snippet:
+                        discord_msg += run.output_snippet.strip() + "\n"
+                    if run.error:
+                        discord_msg += f"\n⚠️ **Error**: `{run.error[:500]}`\n"
+
+                    chunks = split_discord_message(discord_msg, max_length=1900)
+                    for ch in target_channels:
+                        for chunk in chunks:
+                            await ch.send(chunk)
             except Exception as e:
                 print(f"[CronManager] Failed to dispatch Discord notification: {e}")
 
