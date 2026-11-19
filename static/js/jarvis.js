@@ -79,6 +79,7 @@ class JarvisVoiceOverlay {
     this.dom.btnSettings = document.getElementById('jarvis-btn-settings');
     this.dom.settingsCard = document.getElementById('jarvis-settings-card');
     this.dom.voiceSelect = document.getElementById('jarvis-voice-select');
+    this.dom.langSelect = document.getElementById('jarvis-lang-select');
     this.dom.pitchSlider = document.getElementById('jarvis-pitch-slider');
     this.dom.pitchVal = document.getElementById('jarvis-pitch-val');
     this.dom.rateSlider = document.getElementById('jarvis-rate-slider');
@@ -154,7 +155,21 @@ class JarvisVoiceOverlay {
       if (!this.audioCtx) return;
       const now = this.audioCtx.currentTime;
 
-      if (type === 'powerup') {
+      if (type === 'call_connect') {
+        // High-tech communicator connection tri-tone
+        [440, 659.25, 880].forEach((freq, idx) => {
+          const osc = this.audioCtx.createOscillator();
+          const gain = this.audioCtx.createGain();
+          osc.type = 'sine';
+          osc.frequency.setValueAtTime(freq, now + idx * 0.08);
+          gain.gain.setValueAtTime(0.12, now + idx * 0.08);
+          gain.gain.exponentialRampToValueAtTime(0.001, now + idx * 0.08 + 0.18);
+          osc.connect(gain);
+          gain.connect(this.audioCtx.destination);
+          osc.start(now + idx * 0.08);
+          osc.stop(now + idx * 0.08 + 0.18);
+        });
+      } else if (type === 'powerup') {
         // High-tech ascending chirp
         const osc = this.audioCtx.createOscillator();
         const gain = this.audioCtx.createGain();
@@ -231,10 +246,11 @@ class JarvisVoiceOverlay {
   initSpeechRecognition() {
     if (!this.recognition) return;
 
+    this.recognitionLanguage = localStorage.getItem('jarvis_rec_lang') || 'ro-RO';
     this.recognition.continuous = true;
     this.recognition.interimResults = true;
     this.recognition.maxAlternatives = 1;
-    this.recognition.lang = 'en-US';
+    this.recognition.lang = this.recognitionLanguage;
 
     this.recognition.onstart = () => {
       this.isListening = true;
@@ -354,6 +370,12 @@ class JarvisVoiceOverlay {
 
   pickBestJarvisVoice() {
     if (!this.availableVoices.length) return null;
+
+    // If Romanian recognition language is active, check for high quality Romanian voices
+    if (this.recognitionLanguage && this.recognitionLanguage.startsWith('ro')) {
+      const roVoice = this.availableVoices.find(v => v.lang.startsWith('ro'));
+      if (roVoice) return roVoice;
+    }
 
     // Jarvis British sophisticated male voice priorities
     const priorities = [
@@ -532,6 +554,17 @@ class JarvisVoiceOverlay {
   transmitDirective(text) {
     const prompt = (text || '').trim();
     if (!prompt) return;
+
+    // Direct conversational call response for "Salute Chef"
+    const normalized = prompt.toLowerCase().replace(/[.,!?;:']/g, '').trim();
+    if (['salute chef', 'salut chef', 'salute', 'salutare chef', 'salut sefu', 'salut seful'].includes(normalized)) {
+      this.stopListening();
+      this.renderUserStream(prompt, false);
+      const reply = "Salutare Chef! Toate sistemele sunt online. Cu ce vă pot fi de folos?";
+      this.renderAiStream(reply, false);
+      this.speak(reply);
+      return;
+    }
 
     this.stopListening();
     this.isThinking = true;
@@ -882,21 +915,25 @@ class JarvisVoiceOverlay {
     }
   }
 
-  // Open & Close Overlay
-  async open() {
+  // Open & Close Overlay (Voice Call)
+  async open(customGreeting = null) {
     if (this.isOpen) return;
     this.isOpen = true;
     this.dom.overlay?.classList.add('active');
     this.dom.btnHeaderJarvis?.classList.add('active');
     this.dom.btnMicPrompt?.classList.add('active');
 
-    this.playSfx('powerup');
+    this.playSfx('call_connect');
     await this.setupMicrophoneAnalyser();
     this.resizeCanvas();
     this.startAnimationLoop();
 
-    // Auto-start listening on open
-    this.startListening();
+    // Spoken call response greeting: "Salute Chef!"
+    const greeting = customGreeting || (this.recognitionLanguage && this.recognitionLanguage.startsWith('ro')
+      ? "Salute Chef! Cu ce vă pot fi de folos?"
+      : "Salute Chef! Systems online, how can I assist you today?");
+    this.renderAiStream(greeting, false);
+    this.speak(greeting);
   }
 
   close() {
@@ -984,6 +1021,19 @@ class JarvisVoiceOverlay {
         this.selectedVoice = this.availableVoices[idx];
       }
     });
+
+    // Recognition Language Selection
+    if (this.dom.langSelect) {
+      this.dom.langSelect.value = this.recognitionLanguage || 'ro-RO';
+      this.dom.langSelect.addEventListener('change', (e) => {
+        this.recognitionLanguage = e.target.value;
+        localStorage.setItem('jarvis_rec_lang', this.recognitionLanguage);
+        if (this.recognition) {
+          this.recognition.lang = this.recognitionLanguage;
+        }
+        this.selectedVoice = this.pickBestJarvisVoice();
+      });
+    }
 
     // Pitch Slider
     this.dom.pitchSlider?.addEventListener('input', (e) => {

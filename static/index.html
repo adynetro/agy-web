@@ -1310,6 +1310,7 @@
           <span class="jarvis-hud-badge">MARK VII</span>
         </div>
         <div class="jarvis-hud-telemetry">
+          <div class="jarvis-telemetry-item">CALL: <span>CONNECTED</span></div>
           <div class="jarvis-telemetry-item">STATUS: <span>ACTIVE</span></div>
           <div class="jarvis-telemetry-item">AUDIO: <span>48kHz BUS</span></div>
           <div class="jarvis-telemetry-item">CORE: <span>GEMINI 3.8</span></div>
@@ -1333,6 +1334,14 @@
         <div class="jarvis-setting-row">
           <div class="jarvis-setting-label">Voice Selection</div>
           <select id="jarvis-voice-select" class="jarvis-select"></select>
+        </div>
+        <div class="jarvis-setting-row">
+          <div class="jarvis-setting-label">Recognition Language</div>
+          <select id="jarvis-lang-select" class="jarvis-select">
+            <option value="ro-RO" selected>Română (ro-RO)</option>
+            <option value="en-US">English (en-US)</option>
+            <option value="en-GB">English (en-GB)</option>
+          </select>
         </div>
         <div class="jarvis-setting-row">
           <div class="jarvis-setting-label">
@@ -1443,7 +1452,7 @@
 
   <script src="/static/vendor/marked.min.js"></script>
   <script src="/static/vendor/highlight.min.js"></script>
-  <script src="/static/js/jarvis.js?v=1.0"></script>
-  <script src="/static/js/app.js?v=5.8"></script>
+  <script src="/static/js/jarvis.js?v=1.1"></script>
+  <script src="/static/js/app.js?v=5.9"></script>
 </body>
 </html>
