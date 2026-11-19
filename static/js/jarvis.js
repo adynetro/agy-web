@@ -10,7 +10,7 @@ class JarvisVoiceOverlay {
     this.isListening = false;
     this.isSpeaking = false;
     this.isThinking = false;
-    this.continuousMode = true; // Automatically resume listening after answering
+    this.continuousMode = localStorage.getItem('jarvis_continuous') !== 'false';
 
     // Speech Recognition & Synthesis
     const SpeechRec = window.SpeechRecognition || window.webkitSpeechRecognition;
@@ -18,9 +18,13 @@ class JarvisVoiceOverlay {
     this.recognition = SpeechRec ? new SpeechRec() : null;
     this.speechSynth = window.speechSynthesis;
     this.selectedVoice = null;
-    this.voicePitch = 0.94;
-    this.voiceRate = 1.05;
+    this.voicePitch = parseFloat(localStorage.getItem('jarvis_pitch')) || 0.94;
+    this.voiceRate = parseFloat(localStorage.getItem('jarvis_rate')) || 1.05;
+    this.ttsEngine = localStorage.getItem('jarvis_tts_engine') || 'auto'; // 'auto' | 'cloud' | 'web_speech'
+    this.recognitionLanguage = localStorage.getItem('jarvis_rec_lang') || 'ro-RO';
+    this.customGreeting = localStorage.getItem('jarvis_greeting') || '';
     this.availableVoices = [];
+    this.audioPlayer = null; // For Cloud Natural TTS playback
 
     // Web Audio API Visualizer & Sound FX
     this.audioCtx = null;
@@ -78,6 +82,7 @@ class JarvisVoiceOverlay {
     this.dom.btnContinuous = document.getElementById('jarvis-btn-continuous');
     this.dom.btnSettings = document.getElementById('jarvis-btn-settings');
     this.dom.settingsCard = document.getElementById('jarvis-settings-card');
+    this.dom.engineSelect = document.getElementById('jarvis-engine-select');
     this.dom.voiceSelect = document.getElementById('jarvis-voice-select');
     this.dom.langSelect = document.getElementById('jarvis-lang-select');
     this.dom.pitchSlider = document.getElementById('jarvis-pitch-slider');
@@ -472,7 +477,7 @@ class JarvisVoiceOverlay {
   }
 
   speak(text) {
-    if (!this.speechSynth || !text) return;
+    if (!text) return;
 
     this.stopSpeaking();
     this.stopListening();
@@ -494,6 +499,26 @@ class JarvisVoiceOverlay {
     this.speakNextChunk();
   }
 
+  shouldUseCloudTts() {
+    if (this.ttsEngine === 'cloud') return true;
+    if (this.ttsEngine === 'web_speech') return false;
+
+    // 'auto' mode:
+    // If Romanian: check if browser has a native Romanian voice
+    if (this.recognitionLanguage && this.recognitionLanguage.startsWith('ro')) {
+      const hasNativeRo = this.availableVoices.some(v =>
+        v.lang.toLowerCase().startsWith('ro') ||
+        v.name.toLowerCase().includes('romanian') ||
+        v.name.toLowerCase().includes('română') ||
+        v.name.toLowerCase().includes('romana')
+      );
+      if (!hasNativeRo || !this.selectedVoice || !this.selectedVoice.lang.toLowerCase().startsWith('ro')) {
+        return true;
+      }
+    }
+    return false;
+  }
+
   speakNextChunk() {
     if (!this.isSpeaking || this.currentChunkIndex >= this.activeSpeechChunks.length) {
       this.onSpeechComplete();
@@ -503,6 +528,79 @@ class JarvisVoiceOverlay {
     const chunk = this.activeSpeechChunks[this.currentChunkIndex];
     this.currentChunkIndex++;
 
+    const useCloud = this.shouldUseCloudTts();
+
+    if (useCloud) {
+      this.speakChunkCloud(chunk);
+    } else {
+      this.speakChunkWebSpeech(chunk);
+    }
+  }
+
+  speakChunkCloud(chunk) {
+    try {
+      const isRo = this.recognitionLanguage && this.recognitionLanguage.startsWith('ro');
+      const lang = isRo ? 'ro' : 'en';
+      const url = `https://translate.google.com/translate_tts?ie=UTF-8&q=${encodeURIComponent(chunk)}&tl=${lang}&client=tw-ob`;
+
+      if (this.audioPlayer) {
+        try {
+          this.audioPlayer.pause();
+        } catch (e) {}
+        this.audioPlayer = null;
+      }
+
+      const audio = new Audio(url);
+      this.audioPlayer = audio;
+      audio.playbackRate = Math.max(0.7, Math.min(1.5, this.voiceRate));
+
+      let pulseTimer = null;
+      audio.onplay = () => {
+        pulseTimer = setInterval(() => {
+          if (this.isSpeaking) {
+            this.currentAudioLevel = 0.55 + Math.random() * 0.4;
+          }
+        }, 90);
+      };
+
+      const cleanup = () => {
+        if (pulseTimer) {
+          clearInterval(pulseTimer);
+          pulseTimer = null;
+        }
+      };
+
+      audio.onended = () => {
+        cleanup();
+        this.speakNextChunk();
+      };
+
+      audio.onerror = (e) => {
+        console.warn('[J.A.R.V.I.S.] Cloud TTS audio error, falling back to Web Speech API:', e);
+        cleanup();
+        this.speakChunkWebSpeech(chunk);
+      };
+
+      const playPromise = audio.play();
+      if (playPromise !== undefined) {
+        playPromise.catch(err => {
+          console.warn('[J.A.R.V.I.S.] Audio play was prevented (browser autoplay policy):', err);
+          cleanup();
+          this.speakChunkWebSpeech(chunk);
+        });
+      }
+    } catch (err) {
+      console.warn('[J.A.R.V.I.S.] Cloud TTS exception, falling back to Web Speech API:', err);
+      this.speakChunkWebSpeech(chunk);
+    }
+  }
+
+  speakChunkWebSpeech(chunk) {
+    if (!this.speechSynth) {
+      this.speakNextChunk();
+      return;
+    }
+
     const utter = new SpeechSynthesisUtterance(chunk);
     if (this.selectedVoice) {
       utter.voice = this.selectedVoice;
@@ -511,7 +609,6 @@ class JarvisVoiceOverlay {
     utter.rate = this.voiceRate;
 
     utter.onstart = () => {
-      // Audio level simulation for waveform sync while speaking
       this.currentAudioLevel = 0.65 + Math.random() * 0.35;
     };
 
@@ -531,6 +628,13 @@ class JarvisVoiceOverlay {
     this.isSpeaking = false;
     this.activeSpeechChunks = [];
     this.currentChunkIndex = 0;
+    if (this.audioPlayer) {
+      try {
+        this.audioPlayer.pause();
+        this.audioPlayer.currentTime = 0;
+      } catch (e) {}
+      this.audioPlayer = null;
+    }
     if (this.speechSynth) {
       try {
         this.speechSynth.cancel();
@@ -934,9 +1038,11 @@ class JarvisVoiceOverlay {
     this.startAnimationLoop();
 
     // Spoken call response greeting: "Salute Chef!"
-    const greeting = customGreeting || (this.recognitionLanguage && this.recognitionLanguage.startsWith('ro')
-      ? "Salute Chef! Cu ce vă pot fi de folos?"
-      : "Salute Chef! Systems online, how can I assist you today?");
+    const defaultRo = "Salutare Chef! Toate sistemele sunt online. Cu ce vă pot fi de folos?";
+    const defaultEn = "Salute Chef! Systems online, how can I assist you today?";
+    const greeting = customGreeting || this.customGreeting || (
+      this.recognitionLanguage && this.recognitionLanguage.startsWith('ro') ? defaultRo : defaultEn
+    );
     this.renderAiStream(greeting, false);
     this.speak(greeting);
   }
@@ -1019,11 +1125,21 @@ class JarvisVoiceOverlay {
       }
     });
 
+    // TTS Engine Selection
+    if (this.dom.engineSelect) {
+      this.dom.engineSelect.value = this.ttsEngine || 'auto';
+      this.dom.engineSelect.addEventListener('change', (e) => {
+        this.ttsEngine = e.target.value;
+        localStorage.setItem('jarvis_tts_engine', this.ttsEngine);
+      });
+    }
+
     // Voice Selection
     this.dom.voiceSelect?.addEventListener('change', (e) => {
       const idx = parseInt(e.target.value, 10);
       if (this.availableVoices[idx]) {
         this.selectedVoice = this.availableVoices[idx];
+        localStorage.setItem('jarvis_voice_name', this.selectedVoice.name);
       }
     });
 
@@ -1043,14 +1159,69 @@ class JarvisVoiceOverlay {
     // Pitch Slider
     this.dom.pitchSlider?.addEventListener('input', (e) => {
       this.voicePitch = parseFloat(e.target.value);
+      localStorage.setItem('jarvis_pitch', this.voicePitch);
       if (this.dom.pitchVal) this.dom.pitchVal.textContent = this.voicePitch.toFixed(2);
     });
 
     // Rate Slider
     this.dom.rateSlider?.addEventListener('input', (e) => {
       this.voiceRate = parseFloat(e.target.value);
+      localStorage.setItem('jarvis_rate', this.voiceRate);
       if (this.dom.rateVal) this.dom.rateVal.textContent = this.voiceRate.toFixed(2);
     });
+  }
+
+  // Dynamic Settings Sync from WebUI Settings Modal
+  applySettings(s = {}) {
+    if (s.language) {
+      this.recognitionLanguage = s.language;
+      localStorage.setItem('jarvis_rec_lang', s.language);
+      if (this.recognition) {
+        this.recognition.lang = s.language;
+      }
+      if (this.dom.langSelect) {
+        this.dom.langSelect.value = s.language;
+      }
+    }
+    if (s.ttsEngine) {
+      this.ttsEngine = s.ttsEngine;
+      localStorage.setItem('jarvis_tts_engine', s.ttsEngine);
+      if (this.dom.engineSelect) {
+        this.dom.engineSelect.value = s.ttsEngine;
+      }
+    }
+    if (s.voiceName) {
+      const match = this.availableVoices.find(v => v.name === s.voiceName);
+      if (match) this.selectedVoice = match;
+      localStorage.setItem('jarvis_voice_name', s.voiceName);
+    } else if (s.language) {
+      this.selectedVoice = this.pickBestJarvisVoice();
+    }
+    if (s.pitch !== undefined) {
+      this.voicePitch = parseFloat(s.pitch);
+      localStorage.setItem('jarvis_pitch', this.voicePitch);
+      if (this.dom.pitchSlider) this.dom.pitchSlider.value = this.voicePitch;
+      if (this.dom.pitchVal) this.dom.pitchVal.textContent = this.voicePitch.toFixed(2);
+    }
+    if (s.rate !== undefined) {
+      this.voiceRate = parseFloat(s.rate);
+      localStorage.setItem('jarvis_rate', this.voiceRate);
+      if (this.dom.rateSlider) this.dom.rateSlider.value = this.voiceRate;
+      if (this.dom.rateVal) this.dom.rateVal.textContent = this.voiceRate.toFixed(2);
+    }
+    if (s.continuous !== undefined) {
+      this.continuousMode = !!s.continuous;
+      localStorage.setItem('jarvis_continuous', this.continuousMode);
+      if (this.dom.btnContinuous) {
+        this.dom.btnContinuous.classList.toggle('active', this.continuousMode);
+        this.dom.btnContinuous.textContent = this.continuousMode ? '🔄 Continuu: PORNIT' : '🔄 Continuu: OPRIT';
+      }
+    }
+    if (s.greeting !== undefined) {
+      this.customGreeting = s.greeting;
+      localStorage.setItem('jarvis_greeting', this.customGreeting);
+    }
+    this.populateVoiceSelect();
   }
 
   // Keyboard Shortcuts (Alt+J, Ctrl+Shift+V, Esc)

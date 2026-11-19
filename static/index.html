@@ -332,6 +332,9 @@
           <button class="settings-tab-btn active" data-tab="tab-general" id="tab-btn-general">
             <span>⚙️</span> General
           </button>
+          <button class="settings-tab-btn" data-tab="tab-jarvis" id="tab-btn-jarvis">
+            <span>🎙️</span> J.A.R.V.I.S. &amp; Voce
+          </button>
           <button class="settings-tab-btn" data-tab="tab-discord" id="tab-btn-discord">
             <span>💬</span> Channels &amp; Messaging
             <span id="settings-discord-dot" class="status-indicator offline" style="margin-left: 6px; width: 6px; height: 6px;"></span>
@@ -944,6 +947,86 @@
               <button id="btn-save-branding" class="btn-primary">💾 Save &amp; Apply Branding</button>
             </div>
           </div>
+
+          <!-- Tab 5: J.A.R.V.I.S. Voice & Language Settings -->
+          <div id="tab-jarvis" class="settings-tab-content">
+            <div class="form-group">
+              <div style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 4px;">
+                <label class="form-label" for="settings-jarvis-lang" style="margin: 0;">Limbă Preferată J.A.R.V.I.S. (Preferred Language)</label>
+                <span class="brand-badge preview-badge-pill" style="font-size: 11px;">VOICE ENGINE</span>
+              </div>
+              <div class="form-desc">Selectează limba principală pentru recunoașterea vocală (STT) și sinteza vocală (TTS).</div>
+              <select id="settings-jarvis-lang" class="form-input">
+                <option value="ro-RO" selected>🇷🇴 Română (ro-RO)</option>
+                <option value="en-US">🇺🇸 English (en-US)</option>
+                <option value="en-GB">🇬🇧 English (en-GB / British)</option>
+              </select>
+            </div>
+
+            <div class="form-group">
+              <label class="form-label" for="settings-jarvis-engine">Motor Sinteză Vocală (TTS Engine)</label>
+              <div class="form-desc">Google Cloud Natural oferă o pronunție fluentă și clară în română și engleză pe orice dispozitiv (Android, iOS, PC).</div>
+              <select id="settings-jarvis-engine" class="form-input">
+                <option value="auto" selected>⚡ Automat (Cloud Natural TTS + Browser Fallback)</option>
+                <option value="cloud">🌐 Google Cloud Natural TTS (Recomandat)</option>
+                <option value="web_speech">💻 Web Speech API (Voci locale din browser)</option>
+              </select>
+            </div>
+
+            <div class="form-group" id="group-jarvis-browser-voice">
+              <label class="form-label" for="settings-jarvis-voice">Voce Locală Browser (Web Speech API)</label>
+              <div class="form-desc">Vocea utilizată când este activ motorul Web Speech API local.</div>
+              <select id="settings-jarvis-voice" class="form-input">
+                <option value="">-- Voce automată optimă --</option>
+              </select>
+            </div>
+
+            <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 14px;">
+              <div class="form-group">
+                <div style="display: flex; justify-content: space-between; align-items: center;">
+                  <label class="form-label" for="settings-jarvis-rate">Viteză Vorbire (Rate)</label>
+                  <span id="settings-jarvis-rate-val" style="font-family: var(--font-mono); font-size: 12px; font-weight: 700; color: var(--accent-primary);">1.05x</span>
+                </div>
+                <input id="settings-jarvis-rate" type="range" min="0.7" max="1.5" step="0.05" value="1.05" class="jarvis-slider" style="width: 100%; margin-top: 8px;" />
+              </div>
+
+              <div class="form-group">
+                <div style="display: flex; justify-content: space-between; align-items: center;">
+                  <label class="form-label" for="settings-jarvis-pitch">Tonalitate Voce (Pitch)</label>
+                  <span id="settings-jarvis-pitch-val" style="font-family: var(--font-mono); font-size: 12px; font-weight: 700; color: var(--accent-primary);">0.94</span>
+                </div>
+                <input id="settings-jarvis-pitch" type="range" min="0.5" max="1.5" step="0.05" value="0.94" class="jarvis-slider" style="width: 100%; margin-top: 8px;" />
+              </div>
+            </div>
+
+            <div class="form-group">
+              <div class="toggle-row">
+                <div>
+                  <div class="form-label">Mod Dialog Continuu (Continuous Dialogue)</div>
+                  <div class="form-desc">Reia automat ascultarea după ce J.A.R.V.I.S. termină de vorbit</div>
+                </div>
+                <label class="switch">
+                  <input id="settings-jarvis-continuous" type="checkbox" checked>
+                  <span class="slider"></span>
+                </label>
+              </div>
+            </div>
+
+            <div class="form-group">
+              <label class="form-label" for="settings-jarvis-greeting">Mesaj Întâmpinare la Conectare (Greeting)</label>
+              <div class="form-desc">Fraza rostită de J.A.R.V.I.S. când deschizi apelul vocal</div>
+              <input id="settings-jarvis-greeting" type="text" class="form-input" placeholder="Salutare Chef! Toate sistemele sunt online. Cu ce vă pot fi de folos?" />
+            </div>
+
+            <div style="display: flex; justify-content: space-between; align-items: center; margin-top: 10px; padding-top: 12px; border-top: 1px solid var(--border-light);">
+              <button id="btn-test-jarvis-voice" class="btn-secondary" type="button">
+                <span>🔊</span> Testează Vocea
+              </button>
+              <button id="btn-save-jarvis-settings" class="btn-primary" type="button">
+                <span>💾</span> Salvează Setările J.A.R.V.I.S.
+              </button>
+            </div>
+          </div>
         </div>
 
         <div class="modal-footer">
@@ -1332,16 +1415,24 @@
       <!-- Settings Dropdown -->
       <div id="jarvis-settings-card" class="jarvis-settings-card">
         <div class="jarvis-setting-row">
-          <div class="jarvis-setting-label">Selectare Voce (TTS)</div>
-          <select id="jarvis-voice-select" class="jarvis-select"></select>
-        </div>
-        <div class="jarvis-setting-row">
-          <div class="jarvis-setting-label">Limbă Recunoaștere (STT)</div>
+          <div class="jarvis-setting-label">Limbă Preferată</div>
           <select id="jarvis-lang-select" class="jarvis-select">
             <option value="ro-RO" selected>Română (ro-RO)</option>
             <option value="en-US">English (en-US)</option>
             <option value="en-GB">English (en-GB)</option>
           </select>
+        </div>
+        <div class="jarvis-setting-row">
+          <div class="jarvis-setting-label">Motor TTS</div>
+          <select id="jarvis-engine-select" class="jarvis-select">
+            <option value="auto" selected>⚡ Automat</option>
+            <option value="cloud">🌐 Cloud Natural</option>
+            <option value="web_speech">💻 Web Speech API</option>
+          </select>
+        </div>
+        <div class="jarvis-setting-row">
+          <div class="jarvis-setting-label">Selectare Voce (TTS)</div>
+          <select id="jarvis-voice-select" class="jarvis-select"></select>
         </div>
         <div class="jarvis-setting-row">
           <div class="jarvis-setting-label">
@@ -1452,7 +1543,7 @@
 
   <script src="/static/vendor/marked.min.js"></script>
   <script src="/static/vendor/highlight.min.js"></script>
-  <script src="/static/js/jarvis.js?v=1.2"></script>
-  <script src="/static/js/app.js?v=6.0"></script>
+  <script src="/static/js/jarvis.js?v=1.3"></script>
+  <script src="/static/js/app.js?v=6.1"></script>
 </body>
 </html>

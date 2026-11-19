@@ -948,6 +948,38 @@ class AgyApp {
         }
       });
     }
+
+    // J.A.R.V.I.S. Voice & Language Settings handlers
+    document.getElementById('btn-save-jarvis-settings')?.addEventListener('click', () => this.saveJarvisSettings());
+    document.getElementById('btn-test-jarvis-voice')?.addEventListener('click', () => this.testJarvisVoice());
+
+    const jarvisRateSlider = document.getElementById('settings-jarvis-rate');
+    const jarvisRateVal = document.getElementById('settings-jarvis-rate-val');
+    if (jarvisRateSlider && jarvisRateVal) {
+      jarvisRateSlider.addEventListener('input', (e) => {
+        jarvisRateVal.textContent = parseFloat(e.target.value).toFixed(2) + 'x';
+      });
+    }
+
+    const jarvisPitchSlider = document.getElementById('settings-jarvis-pitch');
+    const jarvisPitchVal = document.getElementById('settings-jarvis-pitch-val');
+    if (jarvisPitchSlider && jarvisPitchVal) {
+      jarvisPitchSlider.addEventListener('input', (e) => {
+        jarvisPitchVal.textContent = parseFloat(e.target.value).toFixed(2);
+      });
+    }
+
+    const jarvisLangSelect = document.getElementById('settings-jarvis-lang');
+    if (jarvisLangSelect) {
+      jarvisLangSelect.addEventListener('change', (e) => {
+        const greetingInput = document.getElementById('settings-jarvis-greeting');
+        if (greetingInput) {
+          greetingInput.placeholder = e.target.value.startsWith('ro')
+            ? "Salutare Chef! Toate sistemele sunt online. Cu ce vă pot fi de folos?"
+            : "Salute Chef! Systems online, how can I assist you today?";
+        }
+      });
+    }
   }
 
   // --- API Calls ---
@@ -2487,6 +2519,8 @@ class AgyApp {
       this.loadBrandingForm();
     } else if (tabId === 'tab-discord') {
       this.loadChannelsForm();
+    } else if (tabId === 'tab-jarvis') {
+      this.loadJarvisSettingsForm();
     }
   }
 
@@ -2500,7 +2534,8 @@ class AgyApp {
       this.loadSettingsForm(),
       this.loadChannelsForm(),
       this.loadBrandingForm(),
-      this.loadSystemInfoForm()
+      this.loadSystemInfoForm(),
+      this.loadJarvisSettingsForm()
     ]);
   }
 
@@ -3431,6 +3466,130 @@ class AgyApp {
     } catch (e) {
       alert('Failed to upload logo: ' + e);
     }
+  }
+
+  // --- J.A.R.V.I.S. Voice & Language Settings Logic ---
+
+  loadJarvisSettingsForm() {
+    const langSelect = document.getElementById('settings-jarvis-lang');
+    const engineSelect = document.getElementById('settings-jarvis-engine');
+    const voiceSelect = document.getElementById('settings-jarvis-voice');
+    const rateSlider = document.getElementById('settings-jarvis-rate');
+    const rateVal = document.getElementById('settings-jarvis-rate-val');
+    const pitchSlider = document.getElementById('settings-jarvis-pitch');
+    const pitchVal = document.getElementById('settings-jarvis-pitch-val');
+    const contCheckbox = document.getElementById('settings-jarvis-continuous');
+    const greetingInput = document.getElementById('settings-jarvis-greeting');
+
+    const curLang = localStorage.getItem('jarvis_rec_lang') || 'ro-RO';
+    const curEngine = localStorage.getItem('jarvis_tts_engine') || 'auto';
+    const curRate = parseFloat(localStorage.getItem('jarvis_rate')) || 1.05;
+    const curPitch = parseFloat(localStorage.getItem('jarvis_pitch')) || 0.94;
+    const curCont = localStorage.getItem('jarvis_continuous') !== 'false';
+    const curGreeting = localStorage.getItem('jarvis_greeting') || '';
+    const curVoiceName = localStorage.getItem('jarvis_voice_name') || '';
+
+    if (langSelect) langSelect.value = curLang;
+    if (engineSelect) engineSelect.value = curEngine;
+    if (rateSlider) rateSlider.value = curRate;
+    if (rateVal) rateVal.textContent = curRate.toFixed(2) + 'x';
+    if (pitchSlider) pitchSlider.value = curPitch;
+    if (pitchVal) pitchVal.textContent = curPitch.toFixed(2);
+    if (contCheckbox) contCheckbox.checked = curCont;
+    if (greetingInput) {
+      greetingInput.value = curGreeting;
+      greetingInput.placeholder = curLang.startsWith('ro')
+        ? "Salutare Chef! Toate sistemele sunt online. Cu ce vă pot fi de folos?"
+        : "Salute Chef! Systems online, how can I assist you today?";
+    }
+
+    // Populate browser voices
+    if (voiceSelect && window.speechSynthesis) {
+      const populate = () => {
+        const voices = window.speechSynthesis.getVoices() || [];
+        voiceSelect.innerHTML = '<option value="">-- Voce automată optimă --</option>';
+        voices.forEach(voice => {
+          const opt = document.createElement('option');
+          opt.value = voice.name;
+          opt.textContent = `${voice.name} (${voice.lang})${voice.default ? ' [Default]' : ''}`;
+          if (curVoiceName === voice.name) {
+            opt.selected = true;
+          }
+          voiceSelect.appendChild(opt);
+        });
+      };
+      populate();
+      if (window.speechSynthesis.onvoiceschanged !== undefined) {
+        window.speechSynthesis.onvoiceschanged = populate;
+      }
+    }
+  }
+
+  saveJarvisSettings() {
+    const langSelect = document.getElementById('settings-jarvis-lang');
+    const engineSelect = document.getElementById('settings-jarvis-engine');
+    const voiceSelect = document.getElementById('settings-jarvis-voice');
+    const rateSlider = document.getElementById('settings-jarvis-rate');
+    const pitchSlider = document.getElementById('settings-jarvis-pitch');
+    const contCheckbox = document.getElementById('settings-jarvis-continuous');
+    const greetingInput = document.getElementById('settings-jarvis-greeting');
+
+    const s = {
+      language: langSelect ? langSelect.value : 'ro-RO',
+      ttsEngine: engineSelect ? engineSelect.value : 'auto',
+      voiceName: voiceSelect ? voiceSelect.value : '',
+      rate: rateSlider ? parseFloat(rateSlider.value) : 1.05,
+      pitch: pitchSlider ? parseFloat(pitchSlider.value) : 0.94,
+      continuous: contCheckbox ? contCheckbox.checked : true,
+      greeting: greetingInput ? greetingInput.value.trim() : ''
+    };
+
+    localStorage.setItem('jarvis_rec_lang', s.language);
+    localStorage.setItem('jarvis_tts_engine', s.ttsEngine);
+    localStorage.setItem('jarvis_voice_name', s.voiceName);
+    localStorage.setItem('jarvis_rate', s.rate);
+    localStorage.setItem('jarvis_pitch', s.pitch);
+    localStorage.setItem('jarvis_continuous', s.continuous);
+    localStorage.setItem('jarvis_greeting', s.greeting);
+
+    if (this.jarvis) {
+      this.jarvis.applySettings(s);
+    }
+
+    const btn = document.getElementById('btn-save-jarvis-settings');
+    if (btn) {
+      const orig = btn.innerHTML;
+      btn.innerHTML = '<span>✓</span> Setări Salvate!';
+      btn.classList.add('btn-success');
+      setTimeout(() => {
+        btn.innerHTML = orig;
+        btn.classList.remove('btn-success');
+      }, 2000);
+    }
+  }
+
+  testJarvisVoice() {
+    if (!this.jarvis) return;
+    const langSelect = document.getElementById('settings-jarvis-lang');
+    const engineSelect = document.getElementById('settings-jarvis-engine');
+    const voiceSelect = document.getElementById('settings-jarvis-voice');
+    const rateSlider = document.getElementById('settings-jarvis-rate');
+    const pitchSlider = document.getElementById('settings-jarvis-pitch');
+
+    this.jarvis.applySettings({
+      language: langSelect ? langSelect.value : 'ro-RO',
+      ttsEngine: engineSelect ? engineSelect.value : 'auto',
+      voiceName: voiceSelect ? voiceSelect.value : '',
+      rate: rateSlider ? parseFloat(rateSlider.value) : 1.05,
+      pitch: pitchSlider ? parseFloat(pitchSlider.value) : 0.94
+    });
+
+    const isRo = this.jarvis.recognitionLanguage && this.jarvis.recognitionLanguage.startsWith('ro');
+    const sample = isRo
+      ? "Salutare Chef! Verificarea sistemului audio J.A.R.V.I.S. în limba română a fost realizată cu succes."
+      : "Salute Chef! J.A.R.V.I.S. voice audio subsystem test completed successfully.";
+
+    this.jarvis.speak(sample);
   }
 
   async fetchSystemMetrics() {
