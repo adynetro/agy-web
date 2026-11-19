@@ -264,14 +264,24 @@ class AgyApp {
 
     this.connectWebSocket(this.activeConversationId);
     
-    // Auto-poll channels status every 10s
-    setInterval(() => this.fetchChannels(), 10000);
-    // Auto-poll system status every 4s
-    setInterval(() => this.fetchSystemMetrics(), 4000);
-    // Auto-poll quota limits every 45s
-    setInterval(() => this.fetchQuotaMetrics(), 45000);
-    // Auto-poll processes every 3s
+    // Auto-poll channels status every 20s (paused when tab is in background)
     setInterval(() => {
+      if (document.hidden) return;
+      this.fetchChannels();
+    }, 20000);
+    // Auto-poll system status every 8s (paused when tab is in background)
+    setInterval(() => {
+      if (document.hidden) return;
+      this.fetchSystemMetrics();
+    }, 8000);
+    // Auto-poll quota limits every 60s (paused when tab is in background)
+    setInterval(() => {
+      if (document.hidden) return;
+      this.fetchQuotaMetrics();
+    }, 60000);
+    // Auto-poll processes every 5s (paused when tab is in background)
+    setInterval(() => {
+      if (document.hidden) return;
       this.fetchProcesses();
       if (this.activeViewingPid && this.dom.modalProcessOutput && this.dom.modalProcessOutput.style.display === 'flex') {
         this.refreshProcessOutput(this.activeViewingPid);
@@ -279,14 +289,15 @@ class AgyApp {
       if (!this.isGenerating && this.dom.cliConsoleDrawer && !this.dom.cliConsoleDrawer.classList.contains('collapsed') && this.processes.length > 0) {
         this.followActiveProcessOutput();
       }
-    }, 3000);
-    // Auto-poll cron status every 15s
+    }, 5000);
+    // Auto-poll cron status every 30s (paused when tab is in background)
     setInterval(() => {
+      if (document.hidden) return;
       this.fetchCronJobs();
       if (this.dom.modalCron && this.dom.modalCron.style.display === 'flex' && this.activeCronTab === 'cron-tab-history') {
         this.fetchCronRuns();
       }
-    }, 15000);
+    }, 30000);
   }
 
   initTheme() {
@@ -587,6 +598,9 @@ class AgyApp {
         if (!this.ws || this.ws.readyState !== WebSocket.OPEN) {
           console.log('[Tab] Tab returned to foreground, syncing WebSocket stream...');
           this.connectWebSocket(this.activeConversationId);
+        } else {
+          this.fetchSystemMetrics();
+          this.fetchProcesses();
         }
       }
     });
