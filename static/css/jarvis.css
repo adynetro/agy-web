@@ -702,6 +702,93 @@
   box-shadow: 0 0 16px var(--jarvis-cyan);
 }
 
+/* Voice TTS Output Toggle button in Command Deck */
+.btn-voice-toggle {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 36px;
+  height: 36px;
+  min-width: 36px;
+  background-color: var(--bg-secondary);
+  color: var(--text-primary);
+  border: 1px solid var(--border-color);
+  border-radius: var(--radius-full);
+  cursor: pointer;
+  font-size: 14px;
+  transition: all 0.2s ease;
+  user-select: none;
+  padding: 0;
+  margin-right: 4px;
+}
+
+.btn-voice-toggle:hover {
+  background-color: var(--bg-hover);
+  border-color: var(--jarvis-cyan);
+  color: var(--jarvis-cyan);
+  transform: translateY(-1px);
+}
+
+.btn-voice-toggle.active {
+  background-color: rgba(0, 240, 255, 0.15);
+  border-color: var(--jarvis-cyan);
+  color: var(--jarvis-cyan);
+  box-shadow: 0 0 12px var(--jarvis-cyan-glow);
+}
+
+.btn-voice-toggle.speaking {
+  background-color: rgba(239, 68, 68, 0.2);
+  border-color: #ef4444;
+  color: #f87171;
+  animation: pulse-dot 1.2s infinite ease-in-out;
+}
+
+.btn-voice-toggle.muted {
+  opacity: 0.6;
+  border-color: var(--border-color);
+  color: var(--text-muted);
+}
+
+/* Message Bubble Action Bar (Speak / Listen) */
+.message-actions-bar {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-top: 8px;
+  padding-top: 6px;
+  border-top: 1px solid rgba(255, 255, 255, 0.07);
+}
+
+.btn-msg-action {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  background: rgba(255, 255, 255, 0.05);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  color: var(--text-secondary);
+  font-size: 11px;
+  font-weight: 500;
+  padding: 4px 10px;
+  border-radius: var(--radius-sm);
+  cursor: pointer;
+  transition: all 0.15s ease;
+  user-select: none;
+}
+
+.btn-msg-action:hover {
+  background: rgba(0, 240, 255, 0.12);
+  border-color: var(--jarvis-cyan);
+  color: var(--text-primary);
+  transform: translateY(-1px);
+}
+
+.btn-msg-action.speaking {
+  background: rgba(239, 68, 68, 0.18);
+  border-color: #ef4444;
+  color: #fca5a5;
+  box-shadow: 0 0 10px rgba(239, 68, 68, 0.3);
+}
+
 /* ==========================================================================
    MOBILE & RESPONSIVE HUD OPTIMIZATIONS
    ========================================================================== */

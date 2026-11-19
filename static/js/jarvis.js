@@ -11,6 +11,8 @@ class JarvisVoiceOverlay {
     this.isSpeaking = false;
     this.isThinking = false;
     this.continuousMode = localStorage.getItem('jarvis_continuous') !== 'false';
+    this.autoSpeakChat = localStorage.getItem('jarvis_auto_speak_chat') !== 'false';
+    this.audioUnlocked = false;
 
     // Speech Recognition & Synthesis
     const SpeechRec = window.SpeechRecognition || window.webkitSpeechRecognition;
@@ -62,6 +64,45 @@ class JarvisVoiceOverlay {
     this.initSpeechSynthesis();
     this.initEventListeners();
     this.initKeyboardShortcuts();
+    this.initAudioUnlockListeners();
+    this.updateVoiceToggleUI();
+  }
+
+  initAudioUnlockListeners() {
+    const unlock = () => {
+      this.unlockAudio();
+    };
+    window.addEventListener('pointerdown', unlock, { once: true, passive: true });
+    window.addEventListener('keydown', unlock, { once: true, passive: true });
+    window.addEventListener('touchstart', unlock, { once: true, passive: true });
+  }
+
+  unlockAudio() {
+    this.ensureAudioContext();
+    if (this.audioUnlocked) return;
+    this.audioUnlocked = true;
+
+    if (this.audioCtx && this.audioCtx.state === 'suspended') {
+      try { this.audioCtx.resume(); } catch (e) {}
+    }
+
+    if (this.speechSynth) {
+      try {
+        if (this.speechSynth.paused) {
+          this.speechSynth.resume();
+        }
+        const silent = new SpeechSynthesisUtterance(' ');
+        silent.volume = 0.01;
+        silent.rate = 10;
+        this.speechSynth.speak(silent);
+      } catch (e) {}
+    }
+
+    try {
+      const silentAudio = new Audio('data:audio/wav;base64,UklGRigAAABXQVZFZm10IBIAAAABAAEARKwAAIhYAQACABAAAABkYXRhAgAAAAEA');
+      silentAudio.volume = 0.01;
+      silentAudio.play().catch(() => {});
+    } catch (e) {}
   }
 
   cacheDom() {
@@ -92,6 +133,7 @@ class JarvisVoiceOverlay {
     this.dom.btnClose = document.getElementById('jarvis-btn-close');
     this.dom.btnHeaderJarvis = document.getElementById('btn-header-jarvis');
     this.dom.btnMicPrompt = document.getElementById('btn-mic-prompt');
+    this.dom.btnVoiceToggle = document.getElementById('btn-voice-toggle');
     this.dom.vuContainer = document.getElementById('jarvis-vu-bars');
   }
 
@@ -379,12 +421,13 @@ class JarvisVoiceOverlay {
     // If Romanian recognition language is active, check for high quality Romanian voices
     if (this.recognitionLanguage && this.recognitionLanguage.startsWith('ro')) {
       const roVoice = this.availableVoices.find(v =>
-        v.lang.toLowerCase().startsWith('ro') ||
-        v.name.toLowerCase().includes('romanian') ||
-        v.name.toLowerCase().includes('română') ||
-        v.name.toLowerCase().includes('romana')
+        (v.lang || '').toLowerCase().startsWith('ro') ||
+        (v.name || '').toLowerCase().includes('romanian') ||
+        (v.name || '').toLowerCase().includes('română') ||
+        (v.name || '').toLowerCase().includes('romana')
       );
       if (roVoice) return roVoice;
+      return null;
     }
 
     // Jarvis British sophisticated male voice priorities
@@ -461,6 +504,9 @@ class JarvisVoiceOverlay {
     // Strip markdown links [label](url) -> label
     text = text.replace(/\[([^\]]+)\]\([^)]+\)/g, '$1');
 
+    // Strip raw URLs
+    text = text.replace(/https?:\/\/\S+/g, '');
+
     // Strip headers #, ##, etc.
     text = text.replace(/^#{1,6}\s+/gm, '');
 
@@ -473,28 +519,91 @@ class JarvisVoiceOverlay {
 
     // Normalize whitespace
     text = text.replace(/\s+/g, ' ').trim();
+
+    // If conversational response is exceptionally long (> 550 chars), speak the main summary and advise checking screen
+    if (text.length > 550) {
+      const sentences = text.match(/[^.!?]+[.!?]+|[^.!?]+$/g) || [text];
+      let summary = '';
+      for (const s of sentences) {
+        if ((summary + ' ' + s).length > 450) break;
+        summary += (summary ? ' ' : '') + s.trim();
+      }
+      if (!summary) summary = text.slice(0, 400);
+      const isRo = this.recognitionLanguage && this.recognitionLanguage.startsWith('ro');
+      const tail = isRo
+        ? ' Detaliile complete sunt afișate pe ecran.'
+        : ' Full details are displayed on screen.';
+      text = summary.trim() + tail;
+    }
+
     return text;
+  }
+
+  // Divides text into speech chunks <= 160 characters (safely below Google TTS 200 char hard limit)
+  splitTextIntoSpeechChunks(text, maxLen = 160) {
+    if (!text) return [];
+    const rawSentences = text.match(/[^.!?\n]+[.!?\n]+|[^.!?\n]+$/g) || [text];
+    const chunks = [];
+
+    for (let s of rawSentences) {
+      s = s.trim();
+      if (!s) continue;
+      if (s.length <= maxLen) {
+        chunks.push(s);
+        continue;
+      }
+      const subClauses = s.match(/[^,;:—]+[,;:—]+|[^,;:—]+$/g) || [s];
+      let current = '';
+      for (const c of subClauses) {
+        const part = c.trim();
+        if (!part) continue;
+        if (part.length > maxLen) {
+          const words = part.split(/\s+/);
+          for (const w of words) {
+            if ((current + ' ' + w).trim().length > maxLen) {
+              if (current.trim()) chunks.push(current.trim());
+              current = w;
+            } else {
+              current = current ? (current + ' ' + w) : w;
+            }
+          }
+        } else if ((current + ' ' + part).trim().length > maxLen) {
+          if (current.trim()) chunks.push(current.trim());
+          current = part;
+        } else {
+          current = current ? (current + ' ' + part) : part;
+        }
+      }
+      if (current.trim()) chunks.push(current.trim());
+    }
+    return chunks;
   }
 
   speak(text) {
     if (!text) return;
 
+    this.unlockAudio();
     this.stopSpeaking();
     this.stopListening();
     this.isSpeaking = true;
     this.setState('speaking');
+    this.updateVoiceToggleUI();
     this.playSfx('chime');
 
     const clean = this.cleanTextForSpeech(text);
     if (!clean) {
       this.setState('idle');
+      this.updateVoiceToggleUI();
       return;
     }
 
-    // Split text into conversational sentences to avoid Chromium 15s freeze bug
-    const sentences = clean.match(/[^.!?]+[.!?]+(\s|$)|[^.!?]+$/g) || [clean];
-    this.activeSpeechChunks = sentences.map(s => s.trim()).filter(Boolean);
+    this.activeSpeechChunks = this.splitTextIntoSpeechChunks(clean, 160);
     this.currentChunkIndex = 0;
+
+    if (this.activeSpeechChunks.length === 0) {
+      this.onSpeechComplete();
+      return;
+    }
 
     this.speakNextChunk();
   }
@@ -503,20 +612,8 @@ class JarvisVoiceOverlay {
     if (this.ttsEngine === 'cloud') return true;
     if (this.ttsEngine === 'web_speech') return false;
 
-    // 'auto' mode:
-    // If Romanian: check if browser has a native Romanian voice
-    if (this.recognitionLanguage && this.recognitionLanguage.startsWith('ro')) {
-      const hasNativeRo = this.availableVoices.some(v =>
-        v.lang.toLowerCase().startsWith('ro') ||
-        v.name.toLowerCase().includes('romanian') ||
-        v.name.toLowerCase().includes('română') ||
-        v.name.toLowerCase().includes('romana')
-      );
-      if (!hasNativeRo || !this.selectedVoice || !this.selectedVoice.lang.toLowerCase().startsWith('ro')) {
-        return true;
-      }
-    }
-    return false;
+    // 'auto' mode: prefer Cloud Natural TTS for authentic pronunciation
+    return true;
   }
 
   speakNextChunk() {
@@ -546,22 +643,18 @@ class JarvisVoiceOverlay {
       if (this.audioPlayer) {
         try {
           this.audioPlayer.pause();
+          this.audioPlayer.src = '';
         } catch (e) {}
         this.audioPlayer = null;
       }
 
-      const audio = new Audio(url);
+      const audio = new Audio();
+      audio.referrerPolicy = 'no-referrer';
       this.audioPlayer = audio;
-      audio.playbackRate = Math.max(0.7, Math.min(1.5, this.voiceRate));
+      audio.playbackRate = Math.max(0.7, Math.min(1.5, this.voiceRate || 1.0));
 
       let pulseTimer = null;
-      audio.onplay = () => {
-        pulseTimer = setInterval(() => {
-          if (this.isSpeaking) {
-            this.currentAudioLevel = 0.55 + Math.random() * 0.4;
-          }
-        }, 90);
-      };
+      let hasEnded = false;
 
       const cleanup = () => {
         if (pulseTimer) {
@@ -570,23 +663,46 @@ class JarvisVoiceOverlay {
         }
       };
 
-      audio.onended = () => {
+      const finishAndNext = () => {
+        if (hasEnded) return;
+        hasEnded = true;
         cleanup();
         this.speakNextChunk();
       };
 
-      audio.onerror = (e) => {
-        console.warn('[J.A.R.V.I.S.] Cloud TTS audio error, falling back to Web Speech API:', e);
+      const fallbackToWebSpeech = () => {
+        if (hasEnded) return;
+        hasEnded = true;
         cleanup();
+        console.warn('[J.A.R.V.I.S.] Cloud TTS failed, falling back to Web Speech API for chunk');
         this.speakChunkWebSpeech(chunk);
       };
+
+      audio.onplay = () => {
+        pulseTimer = setInterval(() => {
+          if (this.isSpeaking) {
+            this.currentAudioLevel = 0.55 + Math.random() * 0.4;
+          }
+        }, 90);
+      };
+
+      audio.onended = () => {
+        finishAndNext();
+      };
+
+      audio.onerror = (e) => {
+        console.warn('[J.A.R.V.I.S.] Cloud TTS audio error:', e);
+        fallbackToWebSpeech();
+      };
+
+      // Set src after referrerpolicy and event listeners
+      audio.src = url;
 
       const playPromise = audio.play();
       if (playPromise !== undefined) {
         playPromise.catch(err => {
-          console.warn('[J.A.R.V.I.S.] Audio play was prevented (browser autoplay policy):', err);
-          cleanup();
-          this.speakChunkWebSpeech(chunk);
+          console.warn('[J.A.R.V.I.S.] Audio play was prevented (autoplay policy):', err);
+          fallbackToWebSpeech();
         });
       }
     } catch (err) {
@@ -601,27 +717,67 @@ class JarvisVoiceOverlay {
       return;
     }
 
+    try {
+      if (this.speechSynth.paused) {
+        this.speechSynth.resume();
+      }
+    } catch (e) {}
+
+    const isRo = this.recognitionLanguage && this.recognitionLanguage.startsWith('ro');
+    const targetLang = isRo ? 'ro-RO' : (this.recognitionLanguage || 'en-US');
+
     const utter = new SpeechSynthesisUtterance(chunk);
+    utter.lang = targetLang;
+
+    // Pick matching voice
     if (this.selectedVoice) {
-      utter.voice = this.selectedVoice;
+      const vLang = (this.selectedVoice.lang || '').toLowerCase();
+      const matches = isRo ? vLang.startsWith('ro') : vLang.startsWith('en');
+      if (matches) {
+        utter.voice = this.selectedVoice;
+      }
+    } else if (isRo) {
+      const roVoice = this.availableVoices.find(v => (v.lang || '').toLowerCase().startsWith('ro'));
+      if (roVoice) {
+        utter.voice = roVoice;
+      }
     }
-    utter.pitch = this.voicePitch;
-    utter.rate = this.voiceRate;
+
+    utter.pitch = this.voicePitch || 1.0;
+    utter.rate = this.voiceRate || 1.0;
+
+    let hasEnded = false;
+    const endChunk = () => {
+      if (hasEnded) return;
+      hasEnded = true;
+      this.speakNextChunk();
+    };
 
     utter.onstart = () => {
       this.currentAudioLevel = 0.65 + Math.random() * 0.35;
     };
 
     utter.onend = () => {
-      this.speakNextChunk();
+      endChunk();
     };
 
     utter.onerror = (e) => {
       console.warn('[J.A.R.V.I.S.] Utterance error:', e);
-      this.speakNextChunk();
+      endChunk();
     };
 
-    this.speechSynth.speak(utter);
+    setTimeout(() => {
+      if (!this.isSpeaking) return;
+      try {
+        if (this.speechSynth.paused) {
+          this.speechSynth.resume();
+        }
+        this.speechSynth.speak(utter);
+      } catch (err) {
+        console.warn('[J.A.R.V.I.S.] Speech synthesis speak failed:', err);
+        endChunk();
+      }
+    }, 40);
   }
 
   stopSpeaking() {
@@ -631,23 +787,34 @@ class JarvisVoiceOverlay {
     if (this.audioPlayer) {
       try {
         this.audioPlayer.pause();
-        this.audioPlayer.currentTime = 0;
+        this.audioPlayer.src = '';
       } catch (e) {}
       this.audioPlayer = null;
     }
     if (this.speechSynth) {
       try {
-        this.speechSynth.cancel();
+        if (this.speechSynth.speaking || this.speechSynth.pending) {
+          this.speechSynth.cancel();
+        }
       } catch (e) {}
     }
     if (this.state === 'speaking') {
       this.setState('idle');
+    }
+    this.updateVoiceToggleUI();
+    if (this.app) {
+      this.app.onJarvisSpeechEnded?.();
     }
   }
 
   onSpeechComplete() {
     this.isSpeaking = false;
     this.setState('idle');
+    this.updateVoiceToggleUI();
+
+    if (this.app) {
+      this.app.onJarvisSpeechEnded?.();
+    }
 
     // Continuous dialogue mode: automatically resume listening for follow-up!
     if (this.continuousMode && this.isOpen) {
@@ -707,10 +874,14 @@ class JarvisVoiceOverlay {
   }
 
   onResult(responseText) {
-    if (!this.isOpen) return;
+    if (!responseText) return;
     this.isThinking = false;
-    this.renderAiStream(responseText, false);
-    this.speak(responseText);
+    if (this.isOpen) {
+      this.renderAiStream(responseText, false);
+      this.speak(responseText);
+    } else if (this.autoSpeakChat) {
+      this.speak(responseText);
+    }
   }
 
   onError(errMessage) {
@@ -1074,6 +1245,7 @@ class JarvisVoiceOverlay {
     // Header & prompt trigger buttons
     this.dom.btnHeaderJarvis?.addEventListener('click', () => this.toggle());
     this.dom.btnMicPrompt?.addEventListener('click', () => this.toggle());
+    this.dom.btnVoiceToggle?.addEventListener('click', () => this.toggleAutoSpeakChat());
 
     // Close button
     this.dom.btnClose?.addEventListener('click', () => this.close());
@@ -1171,8 +1343,46 @@ class JarvisVoiceOverlay {
     });
   }
 
+  toggleAutoSpeakChat() {
+    this.unlockAudio();
+    this.autoSpeakChat = !this.autoSpeakChat;
+    localStorage.setItem('jarvis_auto_speak_chat', this.autoSpeakChat);
+    this.updateVoiceToggleUI();
+    if (!this.autoSpeakChat && this.isSpeaking) {
+      this.stopSpeaking();
+    } else if (this.autoSpeakChat) {
+      this.playSfx('chime');
+    }
+  }
+
+  updateVoiceToggleUI() {
+    const btn = this.dom.btnVoiceToggle || document.getElementById('btn-voice-toggle');
+    if (!btn) return;
+    if (this.autoSpeakChat) {
+      btn.classList.add('active');
+      btn.classList.remove('muted');
+      btn.title = 'Răspunsuri vocale automate (TTS): ACTIVAT (Apasă pentru dezactivare)';
+      btn.innerHTML = '<span class="voice-icon">🔊</span>';
+    } else {
+      btn.classList.remove('active');
+      btn.classList.add('muted');
+      btn.title = 'Răspunsuri vocale automate (TTS): DEZACTIVAT (Apasă pentru activare)';
+      btn.innerHTML = '<span class="voice-icon">🔇</span>';
+    }
+    if (this.isSpeaking) {
+      btn.classList.add('speaking');
+    } else {
+      btn.classList.remove('speaking');
+    }
+  }
+
   // Dynamic Settings Sync from WebUI Settings Modal
   applySettings(s = {}) {
+    if (s.autoSpeak !== undefined) {
+      this.autoSpeakChat = !!s.autoSpeak;
+      localStorage.setItem('jarvis_auto_speak_chat', this.autoSpeakChat);
+      this.updateVoiceToggleUI();
+    }
     if (s.language) {
       this.recognitionLanguage = s.language;
       localStorage.setItem('jarvis_rec_lang', s.language);

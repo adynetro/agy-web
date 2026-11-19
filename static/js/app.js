@@ -2413,6 +2413,30 @@ class AgyApp {
       }
     }
 
+    // Message Action Bar (Speak / Listen) for assistant messages
+    if (msg.role === 'assistant' && msg.content && !msg.isStreaming) {
+      const actionsEl = document.createElement('div');
+      actionsEl.className = 'message-actions-bar';
+      const speakBtn = document.createElement('button');
+      speakBtn.className = 'btn-msg-action btn-msg-speak';
+      speakBtn.title = 'Citește răspunsul cu voce tare (TTS)';
+      speakBtn.innerHTML = '<span>🔊</span> Vorbește';
+      speakBtn.onclick = (e) => {
+        e.stopPropagation();
+        if (this.jarvis) {
+          if (this.jarvis.isSpeaking) {
+            this.jarvis.stopSpeaking();
+          } else {
+            this.jarvis.speak(msg.content);
+            speakBtn.classList.add('speaking');
+            speakBtn.innerHTML = '<span>⏹</span> Oprește';
+          }
+        }
+      };
+      actionsEl.appendChild(speakBtn);
+      bubble.appendChild(actionsEl);
+    }
+
     // Metadata footer
     if (msg.usage || msg.duration_seconds) {
       const metaEl = document.createElement('div');
@@ -2439,6 +2463,16 @@ class AgyApp {
       lastRow.replaceWith(replacement);
       this.scrollToBottom(false, false);
     }
+  }
+
+  onJarvisSpeechEnded() {
+    if (this.dom.chatInner) {
+      this.dom.chatInner.querySelectorAll('.btn-msg-speak').forEach(btn => {
+        btn.classList.remove('speaking');
+        btn.innerHTML = '<span>🔊</span> Vorbește';
+      });
+    }
+    this.jarvis?.updateVoiceToggleUI();
   }
 
   attachCopyCodeButtons(container) {
@@ -3478,6 +3512,7 @@ class AgyApp {
     const rateVal = document.getElementById('settings-jarvis-rate-val');
     const pitchSlider = document.getElementById('settings-jarvis-pitch');
     const pitchVal = document.getElementById('settings-jarvis-pitch-val');
+    const autoSpeakCheckbox = document.getElementById('settings-jarvis-auto-speak');
     const contCheckbox = document.getElementById('settings-jarvis-continuous');
     const greetingInput = document.getElementById('settings-jarvis-greeting');
 
@@ -3485,6 +3520,7 @@ class AgyApp {
     const curEngine = localStorage.getItem('jarvis_tts_engine') || 'auto';
     const curRate = parseFloat(localStorage.getItem('jarvis_rate')) || 1.05;
     const curPitch = parseFloat(localStorage.getItem('jarvis_pitch')) || 0.94;
+    const curAutoSpeak = localStorage.getItem('jarvis_auto_speak_chat') !== 'false';
     const curCont = localStorage.getItem('jarvis_continuous') !== 'false';
     const curGreeting = localStorage.getItem('jarvis_greeting') || '';
     const curVoiceName = localStorage.getItem('jarvis_voice_name') || '';
@@ -3495,6 +3531,7 @@ class AgyApp {
     if (rateVal) rateVal.textContent = curRate.toFixed(2) + 'x';
     if (pitchSlider) pitchSlider.value = curPitch;
     if (pitchVal) pitchVal.textContent = curPitch.toFixed(2);
+    if (autoSpeakCheckbox) autoSpeakCheckbox.checked = curAutoSpeak;
     if (contCheckbox) contCheckbox.checked = curCont;
     if (greetingInput) {
       greetingInput.value = curGreeting;
@@ -3531,6 +3568,7 @@ class AgyApp {
     const voiceSelect = document.getElementById('settings-jarvis-voice');
     const rateSlider = document.getElementById('settings-jarvis-rate');
     const pitchSlider = document.getElementById('settings-jarvis-pitch');
+    const autoSpeakCheckbox = document.getElementById('settings-jarvis-auto-speak');
     const contCheckbox = document.getElementById('settings-jarvis-continuous');
     const greetingInput = document.getElementById('settings-jarvis-greeting');
 
@@ -3540,6 +3578,7 @@ class AgyApp {
       voiceName: voiceSelect ? voiceSelect.value : '',
       rate: rateSlider ? parseFloat(rateSlider.value) : 1.05,
       pitch: pitchSlider ? parseFloat(pitchSlider.value) : 0.94,
+      autoSpeak: autoSpeakCheckbox ? autoSpeakCheckbox.checked : true,
       continuous: contCheckbox ? contCheckbox.checked : true,
       greeting: greetingInput ? greetingInput.value.trim() : ''
     };
@@ -3549,6 +3588,7 @@ class AgyApp {
     localStorage.setItem('jarvis_voice_name', s.voiceName);
     localStorage.setItem('jarvis_rate', s.rate);
     localStorage.setItem('jarvis_pitch', s.pitch);
+    localStorage.setItem('jarvis_auto_speak_chat', s.autoSpeak);
     localStorage.setItem('jarvis_continuous', s.continuous);
     localStorage.setItem('jarvis_greeting', s.greeting);
 
@@ -3570,6 +3610,7 @@ class AgyApp {
 
   testJarvisVoice() {
     if (!this.jarvis) return;
+    this.jarvis.unlockAudio();
     const langSelect = document.getElementById('settings-jarvis-lang');
     const engineSelect = document.getElementById('settings-jarvis-engine');
     const voiceSelect = document.getElementById('settings-jarvis-voice');
