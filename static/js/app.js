@@ -236,6 +236,9 @@ class AgyApp {
     this.updateGreeting();
     this.bindEvents();
     this.setupMarkdown();
+    if (window.JarvisVoiceOverlay) {
+      this.jarvis = new JarvisVoiceOverlay(this);
+    }
     await this.fetchBranding();
     await this.fetchInitialSettings();
     await this.fetchModels();
@@ -1583,6 +1586,7 @@ class AgyApp {
         this.updateStreamingMessageUI();
       }
     } else if (type === 'tool') {
+      this.jarvis?.onTool(data);
       if (data.state === 'ACTIVE') {
         const actionText = data.summary ? `⚡ ${data.tool_name} › ${data.summary}` : `⚡ Running ${data.tool_name}...`;
         this.updateLiveBannerAction(actionText);
@@ -1653,6 +1657,9 @@ class AgyApp {
       this.fetchConversations();
       this.fetchQuotaMetrics(true);
       this.fetchSystemMetrics();
+
+      const finalResponse = (data.response || (this.currentAssistantMessage ? this.currentAssistantMessage.content : '')).trim();
+      this.jarvis?.onResult(finalResponse);
     } else if (type === 'error') {
       if (data.conversation_id) {
         this.generatingSessions.delete(data.conversation_id);
@@ -1671,6 +1678,7 @@ class AgyApp {
       this.setGenerating(false);
       this.updateDynamicActionButton('idle');
       this.renderChatMessages();
+      this.jarvis?.onError(data.error);
     } else if (type === 'aborted') {
       if (data.conversation_id) {
         this.generatingSessions.delete(data.conversation_id);
@@ -1689,11 +1697,13 @@ class AgyApp {
       this.setGenerating(false);
       this.updateDynamicActionButton('idle');
       this.renderChatMessages();
+      this.jarvis?.stopSpeaking();
     }
   }
 
   async abortTurn() {
     this.stopLiveBanner();
+    this.jarvis?.stopSpeaking();
     if (!this.isGenerating || !this.activeConversationId) return;
     try {
       if (this.ws && this.ws.readyState === WebSocket.OPEN) {
