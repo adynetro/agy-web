@@ -3507,7 +3507,7 @@ class AgyApp {
     if (voiceSelect && window.speechSynthesis) {
       const populate = () => {
         const voices = window.speechSynthesis.getVoices() || [];
-        voiceSelect.innerHTML = '<option value="">-- Voce automată optimă --</option>';
+        voiceSelect.innerHTML = '<option value="">-- Optimal Automatic Voice --</option>';
         voices.forEach(voice => {
           const opt = document.createElement('option');
           opt.value = voice.name;
@@ -3559,7 +3559,7 @@ class AgyApp {
     const btn = document.getElementById('btn-save-jarvis-settings');
     if (btn) {
       const orig = btn.innerHTML;
-      btn.innerHTML = '<span>✓</span> Setări Salvate!';
+      btn.innerHTML = '<span>✓</span> Settings Saved!';
       btn.classList.add('btn-success');
       setTimeout(() => {
         btn.innerHTML = orig;
