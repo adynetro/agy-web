@@ -21,12 +21,15 @@
 .jarvis-overlay {
   position: fixed;
   inset: 0;
+  height: 100vh;
+  height: 100dvh;
+  max-height: 100dvh;
   z-index: 99999;
   background: radial-gradient(circle at center, rgba(3, 15, 30, 0.95) 0%, rgba(1, 6, 14, 0.98) 100%);
   display: flex;
   flex-direction: column;
   justify-content: space-between;
-  padding: 24px 32px;
+  padding: max(20px, env(safe-area-inset-top)) max(28px, env(safe-area-inset-right)) max(22px, env(safe-area-inset-bottom)) max(28px, env(safe-area-inset-left));
   box-sizing: border-box;
   opacity: 0;
   pointer-events: none;
@@ -34,6 +37,8 @@
   transition: opacity 0.35s cubic-bezier(0.16, 1, 0.3, 1), visibility 0.35s;
   overflow: hidden;
   user-select: none;
+  touch-action: manipulation;
+  -webkit-tap-highlight-color: transparent;
 }
 
 .jarvis-overlay.active {
@@ -620,10 +625,11 @@
   border: 1px solid var(--jarvis-border);
   color: #fff;
   font-family: var(--jarvis-font-hud);
-  font-size: 12px;
-  padding: 6px 10px;
+  font-size: 13px;
+  padding: 8px 10px;
   border-radius: 6px;
   outline: none;
+  touch-action: manipulation;
 }
 
 .jarvis-slider {
@@ -696,32 +702,263 @@
   box-shadow: 0 0 16px var(--jarvis-cyan);
 }
 
-/* Mobile Responsiveness */
+/* ==========================================================================
+   MOBILE & RESPONSIVE HUD OPTIMIZATIONS
+   ========================================================================== */
+
+/* Tablet & Mobile Screens (<= 768px) */
 @media (max-width: 768px) {
   .jarvis-overlay {
-    padding: 14px 16px;
+    padding: max(12px, env(safe-area-inset-top)) 16px max(14px, env(safe-area-inset-bottom)) 16px;
+  }
+  .jarvis-corner-bracket {
+    width: 20px;
+    height: 20px;
+  }
+  .jarvis-hud-top {
+    padding-bottom: 8px;
+  }
+  .jarvis-hud-telemetry {
+    display: none;
+  }
+  .jarvis-hud-mark {
+    font-size: 16px;
+  }
+  .jarvis-hud-btn {
+    padding: 6px 10px;
+    font-size: 11.5px;
   }
   .jarvis-core-wrapper {
-    width: 300px;
-    height: 300px;
+    width: min(280px, 62vw);
+    height: min(280px, 62vw);
+    margin: 8px 0;
   }
   .jarvis-core-trigger {
-    width: 105px;
-    height: 105px;
+    width: 96px;
+    height: 96px;
   }
   .jarvis-core-icon {
     font-size: 26px;
   }
-  .jarvis-hud-telemetry {
-    display: none;
+  .jarvis-core-label {
+    font-size: 9px;
+    letter-spacing: 1px;
+  }
+  .jarvis-status-pill {
+    margin-top: 10px;
+    padding: 5px 14px;
+    font-size: 11px;
   }
   .jarvis-dialogue-card {
     max-height: 22vh;
     padding: 12px 14px;
     font-size: 13.5px;
+    margin-bottom: 8px;
   }
   .jarvis-settings-card {
-    right: 16px;
-    width: calc(100vw - 32px);
+    top: 56px;
+    right: 14px;
+    left: 14px;
+    width: auto;
+    max-width: calc(100vw - 28px);
+    max-height: 75vh;
+    overflow-y: auto;
+    -webkit-overflow-scrolling: touch;
+  }
+  .jarvis-btn-mic-main {
+    width: 44px;
+    height: 44px;
+    min-width: 44px;
+    font-size: 18px;
+  }
+  .jarvis-text-input {
+    padding: 10px 16px;
+    font-size: 14px;
+  }
+}
+
+/* Phones & Small Handhelds (<= 480px) */
+@media (max-width: 480px) {
+  .jarvis-overlay {
+    padding: max(8px, env(safe-area-inset-top)) 10px max(10px, env(safe-area-inset-bottom)) 10px;
+  }
+  .jarvis-corner-tl { top: 6px; left: 6px; }
+  .jarvis-corner-tr { top: 6px; right: 6px; }
+  .jarvis-corner-bl { bottom: 6px; left: 6px; }
+  .jarvis-corner-br { bottom: 6px; right: 6px; }
+
+  .jarvis-hud-top {
+    padding-bottom: 6px;
+  }
+  .jarvis-hud-mark {
+    font-size: 14px;
+    letter-spacing: 1px;
+  }
+  .jarvis-hud-badge {
+    display: none;
+  }
+  .jarvis-top-controls {
+    gap: 4px;
+  }
+  .jarvis-hud-btn {
+    padding: 5px 7px;
+    font-size: 10.5px;
+    border-radius: 5px;
+  }
+  .jarvis-btn-close {
+    padding: 5px 8px;
+  }
+
+  .jarvis-hud-center {
+    margin: 4px 0;
+  }
+  .jarvis-core-wrapper {
+    width: min(205px, 52vw);
+    height: min(205px, 52vw);
+    margin: 4px 0;
+  }
+  .jarvis-core-trigger {
+    width: 76px;
+    height: 76px;
+  }
+  .jarvis-core-icon {
+    font-size: 22px;
+  }
+  .jarvis-core-label {
+    font-size: 8px;
+    letter-spacing: 0.8px;
+    margin-top: 2px;
+  }
+  .jarvis-status-pill {
+    margin-top: 6px;
+    padding: 4px 10px;
+    font-size: 9.5px;
+    letter-spacing: 0.8px;
+  }
+  .jarvis-audio-meter-bar {
+    height: 16px;
+    margin: 4px 0;
+    gap: 2px;
+  }
+  .jarvis-vu-stick {
+    width: 3px;
+  }
+
+  .jarvis-dialogue-card {
+    max-height: 25vh;
+    padding: 10px 12px;
+    font-size: 12.5px;
+    margin-bottom: 6px;
+    border-radius: 8px;
+  }
+  .jarvis-stream-row {
+    margin-bottom: 5px;
+    line-height: 1.4;
+  }
+  .jarvis-stream-prefix {
+    font-size: 10.5px;
+    margin-right: 5px;
+  }
+
+  .jarvis-hud-bottom {
+    gap: 6px;
+  }
+  .jarvis-btn-mic-main {
+    width: 42px;
+    height: 42px;
+    min-width: 42px;
+    font-size: 17px;
+  }
+  .jarvis-input-box {
+    flex: 1;
+  }
+  .jarvis-text-input {
+    padding: 8px 36px 8px 12px;
+    font-size: 13.5px;
+  }
+  .jarvis-btn-send {
+    width: 28px;
+    height: 28px;
+    right: 4px;
+    font-size: 12px;
+  }
+  .jarvis-btn-stop-speech {
+    padding: 6px 10px;
+    font-size: 10px;
+    white-space: nowrap;
+  }
+
+  .jarvis-settings-card {
+    top: 48px;
+    right: 8px;
+    left: 8px;
+    width: auto;
+    max-width: calc(100vw - 16px);
+    padding: 12px;
+    gap: 10px;
+  }
+  .jarvis-setting-label {
+    font-size: 10.5px;
+  }
+  .jarvis-select {
+    padding: 8px 10px;
+    font-size: 13.5px;
+    min-height: 38px;
+  }
+}
+
+/* Landscape Phones (Short Screen Height <= 500px) */
+@media (max-height: 500px) and (orientation: landscape) {
+  .jarvis-overlay {
+    padding: 6px 14px;
+  }
+  .jarvis-hud-top {
+    padding-bottom: 4px;
+  }
+  .jarvis-hud-center {
+    flex-direction: row;
+    gap: 16px;
+    margin: 2px 0;
+  }
+  .jarvis-core-wrapper {
+    width: 130px;
+    height: 130px;
+    margin: 0;
+  }
+  .jarvis-core-trigger {
+    width: 58px;
+    height: 58px;
+  }
+  .jarvis-core-icon {
+    font-size: 16px;
+  }
+  .jarvis-core-label {
+    display: none;
+  }
+  .jarvis-status-pill {
+    margin-top: 0;
+    font-size: 9px;
+    padding: 3px 8px;
+  }
+  .jarvis-audio-meter-bar {
+    display: none;
+  }
+  .jarvis-dialogue-card {
+    max-height: 18vh;
+    padding: 6px 10px;
+    font-size: 12px;
+    margin-bottom: 4px;
+  }
+  .jarvis-hud-bottom {
+    gap: 6px;
+  }
+  .jarvis-text-input {
+    padding: 6px 34px 6px 10px;
+  }
+  .jarvis-btn-mic-main {
+    width: 36px;
+    height: 36px;
+    min-width: 36px;
+    font-size: 15px;
   }
 }

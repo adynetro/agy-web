@@ -287,7 +287,7 @@ class JarvisVoiceOverlay {
     this.recognition.onerror = (event) => {
       console.warn('[J.A.R.V.I.S.] Speech recognition notice:', event.error);
       if (event.error === 'not-allowed') {
-        this.appendStreamSystem('Microphone permission denied. Please allow microphone access or type your directive below.');
+        this.appendStreamSystem('Accesul la microfon a fost refuzat. Vă rugăm să permiteți accesul la microfon sau să scrieți directiva mai jos.');
         this.stopListening();
       }
     };
@@ -309,7 +309,7 @@ class JarvisVoiceOverlay {
 
   startListening() {
     if (!this.hasRecognition) {
-      this.appendStreamSystem('Speech recognition is not supported in this browser. You can type below to interact with J.A.R.V.I.S.');
+      this.appendStreamSystem('Recunoașterea vocală nu este suportată în acest browser. Puteți scrie comanda mai jos pentru a interacționa cu J.A.R.V.I.S.');
       return;
     }
     if (this.isSpeaking) {
@@ -373,7 +373,12 @@ class JarvisVoiceOverlay {
 
     // If Romanian recognition language is active, check for high quality Romanian voices
     if (this.recognitionLanguage && this.recognitionLanguage.startsWith('ro')) {
-      const roVoice = this.availableVoices.find(v => v.lang.startsWith('ro'));
+      const roVoice = this.availableVoices.find(v =>
+        v.lang.toLowerCase().startsWith('ro') ||
+        v.name.toLowerCase().includes('romanian') ||
+        v.name.toLowerCase().includes('română') ||
+        v.name.toLowerCase().includes('romana')
+      );
       if (roVoice) return roVoice;
     }
 
@@ -437,8 +442,8 @@ class JarvisVoiceOverlay {
     text = text.replace(/```[a-zA-Z0-9_-]*\n([\s\S]*?)\n```/g, (match, code) => {
       const lines = code.trim().split('\n');
       return lines.length > 3
-        ? ' The requested command output is displayed on your terminal. '
-        : ` Code command: ${code.replace(/\n/g, '; ')}. `;
+        ? ' Rezultatul comenzii solicitate este afișat pe ecran. '
+        : ` Comandă: ${code.replace(/\n/g, '; ')}. `;
     });
 
     // Strip inline backticks, bold, italic, strikethrough
@@ -557,7 +562,7 @@ class JarvisVoiceOverlay {
 
     // Direct conversational call response for "Salute Chef"
     const normalized = prompt.toLowerCase().replace(/[.,!?;:']/g, '').trim();
-    if (['salute chef', 'salut chef', 'salute', 'salutare chef', 'salut sefu', 'salut seful'].includes(normalized)) {
+    if (['salute chef', 'salut chef', 'salute', 'salutare chef', 'salut sefu', 'salut seful', 'salut jarvis', 'buna chef', 'buna jarvis'].includes(normalized)) {
       this.stopListening();
       this.renderUserStream(prompt, false);
       const reply = "Salutare Chef! Toate sistemele sunt online. Cu ce vă pot fi de folos?";
@@ -572,7 +577,7 @@ class JarvisVoiceOverlay {
     this.playSfx('transmit');
 
     this.renderUserStream(prompt, false);
-    this.renderAiStream('Processing directive, Sir...', true);
+    this.renderAiStream('Procesez directiva, Șefu\'...', true);
 
     // Forward to Antigravity App chat workflow
     if (this.app) {
@@ -586,14 +591,14 @@ class JarvisVoiceOverlay {
   // Stream Event Hooks from app.js
   onTool(data) {
     if (!this.isOpen) return;
-    const toolName = data.tool_name || 'Tool';
+    const toolName = data.tool_name || 'Comandă';
     const summary = data.summary || '';
     const state = data.state || 'ACTIVE';
     if (state === 'ACTIVE') {
-      this.appendStreamTool(`⚡ [EXECUTING] ${toolName} ${summary ? '› ' + summary : ''}`);
+      this.appendStreamTool(`⚡ [EXECUTARE] ${toolName} ${summary ? '› ' + summary : ''}`);
     } else if (state === 'DONE') {
       const dur = data.duration_seconds ? ` (${data.duration_seconds.toFixed(2)}s)` : '';
-      this.appendStreamTool(`✔ [COMPLETED] ${toolName}${dur}`);
+      this.appendStreamTool(`✔ [FINALIZAT] ${toolName}${dur}`);
     }
   }
 
@@ -607,7 +612,7 @@ class JarvisVoiceOverlay {
   onError(errMessage) {
     if (!this.isOpen) return;
     this.isThinking = false;
-    const msg = `An error occurred: ${errMessage}`;
+    const msg = `A intervenit o eroare: ${errMessage}`;
     this.renderAiStream(msg, false);
     this.speak(msg);
   }
@@ -627,24 +632,24 @@ class JarvisVoiceOverlay {
     if (this.dom.statusText && this.dom.coreLabel) {
       switch (newState) {
         case 'listening':
-          this.dom.statusText.textContent = 'LISTENING FOR DIRECTIVE...';
-          this.dom.coreLabel.textContent = 'LISTENING';
+          this.dom.statusText.textContent = 'ASCULTARE DIRECTIVĂ // MICROFON ACTIV';
+          this.dom.coreLabel.textContent = 'ASCULTARE';
           this.dom.coreIcon.textContent = '🎙️';
           break;
         case 'thinking':
-          this.dom.statusText.textContent = 'PROCESSING DIRECTIVE...';
-          this.dom.coreLabel.textContent = 'ANALYZING';
+          this.dom.statusText.textContent = 'PROCESARE DIRECTIVĂ...';
+          this.dom.coreLabel.textContent = 'ANALIZĂ';
           this.dom.coreIcon.textContent = '⚡';
           break;
         case 'speaking':
-          this.dom.statusText.textContent = 'TRANSMITTING RESPONSE...';
-          this.dom.coreLabel.textContent = 'SPEAKING';
+          this.dom.statusText.textContent = 'J.A.R.V.I.S. RĂSPUNDE // AUDIO ACTIV';
+          this.dom.coreLabel.textContent = 'VORBIRE';
           this.dom.coreIcon.textContent = '🔊';
           break;
         case 'idle':
         default:
-          this.dom.statusText.textContent = 'STANDBY // READY';
-          this.dom.coreLabel.textContent = 'TAP TO TALK';
+          this.dom.statusText.textContent = 'STANDBY // GATA DE RECEPȚIE';
+          this.dom.coreLabel.textContent = 'ATINGE PT. VORBIRE';
           this.dom.coreIcon.textContent = '✦';
           break;
       }
@@ -662,7 +667,7 @@ class JarvisVoiceOverlay {
       row = document.createElement('div');
       row.id = 'jarvis-stream-current-user';
       row.className = 'jarvis-stream-row jarvis-stream-user';
-      row.innerHTML = `<span class="jarvis-stream-prefix">YOU &gt;</span><span class="jarvis-stream-body"></span>`;
+      row.innerHTML = `<span class="jarvis-stream-prefix">TU &gt;</span><span class="jarvis-stream-body"></span>`;
       this.dom.streamContainer.appendChild(row);
     }
     const body = row.querySelector('.jarvis-stream-body');
@@ -998,7 +1003,7 @@ class JarvisVoiceOverlay {
     this.dom.btnContinuous?.addEventListener('click', () => {
       this.continuousMode = !this.continuousMode;
       this.dom.btnContinuous.classList.toggle('active', this.continuousMode);
-      this.dom.btnContinuous.textContent = this.continuousMode ? '🔄 Continuous: ON' : '🔄 Continuous: OFF';
+      this.dom.btnContinuous.textContent = this.continuousMode ? '🔄 Continuu: PORNIT' : '🔄 Continuu: OPRIT';
     });
 
     // Settings Card Toggle
